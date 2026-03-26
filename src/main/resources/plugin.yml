@@ -4,3 +4,6 @@ main: sudark2.Sudark.rentLandPro.RentLandPro
 api-version: '1.21'
 load: STARTUP
 authors: [ Sudark ]
+commands:
+  land:
+    description: Land command

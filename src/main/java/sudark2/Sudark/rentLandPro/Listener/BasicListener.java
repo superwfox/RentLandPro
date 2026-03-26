@@ -1,4 +1,13 @@
 package sudark2.Sudark.rentLandPro.Listener;
 
-public class BasicListener {
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+
+public class BasicListener implements Listener {
+
+    @EventHandler
+    public void on() {
+
+    }
+
 }
