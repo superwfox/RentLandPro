@@ -1,5 +1,6 @@
 package sudark2.Sudark.rentLandPro.OneBotRelated;
 
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import static sudark2.Sudark.rentLandPro.File.ConfigManager.GroupId;
@@ -11,11 +12,16 @@ public class OneBotHandler {
 
         if (jsonObject.containsKey("post_type")) {
 
-            String parsedMsg = parseMsg(jsonObject.getJSONArray("message").getJSONObject(0).getJSONObject("type"));
+            JSONArray msgArray = jsonObject.getJSONArray("message");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < msgArray.size(); i++) {
+                sb.append(parseMsg(msgArray.getJSONObject(i)));
+            }
+            String parsedMsg = sb.toString();
 
             switch (jsonObject.getString("message_type")) {
                 case "private" -> PrivateMsgHandler(jsonObject.getJSONObject("sender"), parsedMsg);
-                case "group" -> GroupMsgHandler(jsonObject.getJSONObject("sender"), parsedMsg);
+                case "group" -> GroupMsgHandler(jsonObject, parsedMsg);
             }
 
         }
@@ -25,11 +31,12 @@ public class OneBotHandler {
 
     }
 
-    public static void GroupMsgHandler(JSONObject msgSender, String msg) {
-        String groupId = msgSender.getString("group_id");
+    public static void GroupMsgHandler(JSONObject jsonObject, String msg) {
+        String groupId = String.valueOf(jsonObject.get("group_id"));
         if(!groupId.equals(GroupId)) return;
 
-        String UserQQ = msgSender.getString("user_id");
+        JSONObject sender = jsonObject.getJSONObject("sender");
+        String userQQ = String.valueOf(sender.get("user_id"));
 
     }
 

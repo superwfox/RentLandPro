@@ -39,7 +39,7 @@ public class OneBotClient extends WebSocketClient {
                 } catch (InterruptedException e) {
                     //WARN 没有必要
                 }
-                this.connect();
+                this.reconnect();
             }).start();
         }
     }

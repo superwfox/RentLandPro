@@ -3,8 +3,10 @@ package sudark2.Sudark.rentLandPro;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import sudark2.Sudark.rentLandPro.File.FileManager;
 import sudark2.Sudark.rentLandPro.OneBotRelated.OneBotClient;
 
+import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -20,7 +22,7 @@ public final class RentLandPro extends JavaPlugin {
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
-
+        FileManager.init();
     }
 
     public static Plugin get(){
