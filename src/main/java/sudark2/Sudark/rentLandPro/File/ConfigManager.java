@@ -9,7 +9,6 @@ public class ConfigManager {
 
     public static String GroupId = "101";
 
-
     public static void loadConfig() {
         get().saveDefaultConfig();
         FileConfiguration config = get().getConfig();

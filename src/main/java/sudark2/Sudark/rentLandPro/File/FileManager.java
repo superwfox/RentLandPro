@@ -6,10 +6,18 @@ import static sudark2.Sudark.rentLandPro.RentLandPro.get;
 
 public class FileManager {
 
+    public static final String LandInfoFileName = "landInfo.dat";
+    public static final String PermissionFileName = "permission.dat";
+    public static final String FunctionsFileName = "functions.dat";
+
     public static void init() {
-        checkFile("landInfo.dat");
-        checkFile("permission.dat");
-        checkFile("functions.dat");
+        checkFile(LandInfoFileName);
+        checkFile(PermissionFileName);
+        checkFile(FunctionsFileName);
+
+        ConfigManager.loadConfig();
+        CourierCSVLoader.refresh();
+        BinaryEditor.loadAll();
     }
 
     private static void checkFile(String fileName) {

@@ -16,6 +16,8 @@ public class CourierCSVLoader {
         File csvFile = new File(Bukkit.getServer().getPluginManager().getPlugin("Courier").getDataFolder(), "courier.csv");
 
         if(!csvFile.exists())return;
+        QQ2ID.clear();
+        ID2QQ.clear();
 
         try(var reader = Files.newBufferedReader(csvFile.toPath())){
             String line;
