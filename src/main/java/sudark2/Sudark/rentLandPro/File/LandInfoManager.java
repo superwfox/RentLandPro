@@ -4,7 +4,7 @@ import org.bukkit.Material;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-public class landInfoManager {
+public class LandInfoManager {
 
     public static ConcurrentHashMap<
             Long,// chunkKey
@@ -32,17 +32,24 @@ public class landInfoManager {
         private int landDuration;
         private Material landSignature;
         private Long[] landPile;
+        private int[] teleportPoint;
 
-        public LandInfo(String landName, String landOwnerQQ, int landDuration, Material landSignature, Long[] landPile) {
+        public LandInfo(String landName, String landOwnerQQ, int landDuration, Material landSignature, Long[] landPile, int[] teleportPoint) {
             this.landName = landName;
             this.landOwnerQQ = landOwnerQQ;
             this.landDuration = landDuration;
             this.landSignature = landSignature;
             this.landPile = landPile;
+            this.teleportPoint = teleportPoint;
         }
 
         public String getLandName() {
             return landName;
+        }
+
+        public void setLandName(String landName) {
+            this.landName = landName;
+            BinaryEditor.writeLandInfo();
         }
 
         public String getLandOwnerQQ() {
@@ -53,16 +60,43 @@ public class landInfoManager {
             return landDuration;
         }
 
+        public void setLandDuration(int landDuration) {
+            this.landDuration = landDuration;
+            BinaryEditor.writeLandInfo();
+        }
+
         public Long[] getLandPile() {
             return landPile;
         }
 
-        public Long getLandId(LandInfo landInfo) {
+        public void addChunkToPile(Long chunkKey) {
+            Long[] newPile = new Long[landPile.length + 1];
+            System.arraycopy(landPile, 0, newPile, 0, landPile.length);
+            newPile[landPile.length] = chunkKey;
+            this.landPile = newPile;
+            BinaryEditor.writeLandInfo();
+        }
+
+        public int[] getTeleportPoint() {
+            return teleportPoint;
+        }
+
+        public void setTeleportPoint(int[] teleportPoint) {
+            this.teleportPoint = teleportPoint;
+            BinaryEditor.writeLandInfo();
+        }
+
+        public Long getLandId() {
             return landPile[0];
         }
 
         public Material getLandSignature() {
             return landSignature;
+        }
+
+        public void setLandSignature(Material landSignature) {
+            this.landSignature = landSignature;
+            BinaryEditor.writeLandInfo();
         }
     }
 }

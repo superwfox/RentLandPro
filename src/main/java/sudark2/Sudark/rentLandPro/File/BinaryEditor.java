@@ -39,13 +39,13 @@ public class BinaryEditor {
                 new BufferedOutputStream(new FileOutputStream(file)))) {
 
             // 第 1 步：写入记录总数，读取时靠这个数字决定循环次数
-            dos.writeInt(landInfoManager.landInfoMap.size());
+            dos.writeInt(LandInfoManager.landInfoMap.size());
 
             // 第 2 步：逐条写入每个 LandInfo 的字段
-            for (Map.Entry<Long, landInfoManager.LandInfo> mapEntry : landInfoManager.landInfoMap.entrySet()) {
+            for (Map.Entry<Long, LandInfoManager.LandInfo> mapEntry : LandInfoManager.landInfoMap.entrySet()) {
                 dos.writeLong(mapEntry.getKey());               // 领地ID（Map 的 key）
 
-                landInfoManager.LandInfo info = mapEntry.getValue();
+                LandInfoManager.LandInfo info = mapEntry.getValue();
                 dos.writeUTF(info.getLandName());               // 字符串 → writeUTF
                 dos.writeUTF(info.getLandOwnerQQ());
                 dos.writeInt(info.getlandDuration());           // 整数   → writeInt
@@ -56,6 +56,12 @@ public class BinaryEditor {
                 dos.writeInt(pile.length);
                 for (Long chunkKey : pile) {
                     dos.writeLong(chunkKey);                    // 长整数 → writeLong
+                }
+
+                int[] teleportPoint = info.getTeleportPoint();
+                dos.writeInt(teleportPoint.length);
+                for (int point : teleportPoint) {
+                    dos.writeInt(point);
                 }
             }
         } catch (IOException e) {
@@ -92,8 +98,14 @@ public class BinaryEditor {
                     pile[j] = dis.readLong();
                 }
 
-                landInfoManager.landInfoMap.put(
-                        landId, new landInfoManager.LandInfo(landName, ownerQQ, duration, signature, pile));
+                int teleportPointCount = dis.readInt();
+                int[] teleportPoint = new int[teleportPointCount];
+                for (int j = 0; j < teleportPointCount; j++) {
+                    teleportPoint[j] = dis.readInt();
+                }
+
+                LandInfoManager.landInfoMap.put(
+                        landId, new LandInfoManager.LandInfo(landName, ownerQQ, duration, signature, pile, teleportPoint));
             }
 
         } catch (IOException e) {

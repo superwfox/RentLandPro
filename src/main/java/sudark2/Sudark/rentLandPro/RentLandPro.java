@@ -4,9 +4,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import sudark2.Sudark.rentLandPro.File.FileManager;
+import sudark2.Sudark.rentLandPro.LandLogic.Clock;
+import sudark2.Sudark.rentLandPro.Listener.*;
 import sudark2.Sudark.rentLandPro.OneBotRelated.OneBotClient;
 
-import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -22,10 +23,29 @@ public final class RentLandPro extends JavaPlugin {
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+
         FileManager.init();
+
+        // 注册所有监听器
+        Bukkit.getPluginManager().registerEvents(new GeneralListener(), this);
+        Bukkit.getPluginManager().registerEvents(new LandHomeMenuListener(), this);
+        Bukkit.getPluginManager().registerEvents(new LandDetailsMenuListener(), this);
+        Bukkit.getPluginManager().registerEvents(new LandFunctionsMenuListener(), this);
+        Bukkit.getPluginManager().registerEvents(new LandCreationListener(), this);
+
+        // 启动租期倒计时任务
+        Clock.startDailyTask();
+
+        getLogger().info("§bRentLandPro §f已加载");
     }
 
-    public static Plugin get(){
+    @Override
+    public void onDisable() {
+        sudark2.Sudark.rentLandPro.File.BinaryEditor.saveAll();
+        getLogger().info("§bRentLandPro §f已保存数据并卸载");
+    }
+
+    public static Plugin get() {
         return Bukkit.getPluginManager().getPlugin("RentLandPro");
     }
 }
