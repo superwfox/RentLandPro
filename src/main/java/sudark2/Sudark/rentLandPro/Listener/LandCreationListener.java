@@ -102,7 +102,6 @@ public class LandCreationListener implements Listener {
             Item markerItem = pl.getWorld().dropItem(markerLoc, new ItemStack(Material.FILLED_MAP));
             markerItem.setPickupDelay(Integer.MAX_VALUE);
             markerItem.setVelocity(new Vector(0, 0, 0));
-            markerItem.setGravity(false);
             markerItem.setGlowing(true);
 
             frameSelectionCorner1.put(playerName, currentCorner);
