@@ -1,13 +1,17 @@
 package sudark2.Sudark.rentLandPro.Listener;
 
 import org.bukkit.*;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 import sudark2.Sudark.rentLandPro.File.BinaryEditor;
 import sudark2.Sudark.rentLandPro.File.ConfigManager;
 import sudark2.Sudark.rentLandPro.File.LandFunctionsManager;
@@ -33,6 +37,10 @@ public class LandCreationListener implements Listener {
     private static final ConcurrentHashMap<Long, BukkitRunnable> particleTasks = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, World> pendingWorlds = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Set<Long>> originalChunks = new ConcurrentHashMap<>();
+
+    // 框选法相关数据结构
+    private static final ConcurrentHashMap<String, int[]> frameSelectionCorner1 = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Item> frameSelectionMarker1 = new ConcurrentHashMap<>();
 
     private static final Particle.DustTransition DUST_TRANSITION = new Particle.DustTransition(
             Color.ORANGE, Color.YELLOW, 5.0f);
@@ -65,6 +73,136 @@ public class LandCreationListener implements Listener {
     }
 
     @EventHandler
+    public void onPlayerDropMap(PlayerDropItemEvent event) {
+        ItemStack droppedItem = event.getItemDrop().getItemStack();
+        if (droppedItem.getType() != Material.MAP && droppedItem.getType() != Material.FILLED_MAP) return;
+
+        Player pl = event.getPlayer();
+        String playerName = pl.getName();
+
+        // 检查玩家是否正在编辑领地
+        Long editingLandId = editingLand.get(playerName);
+        if (editingLandId == null) return;
+
+        event.setCancelled(true);
+
+        // 在玩家direction前0.5格位置生成标记实体
+        Location eyeLoc = pl.getEyeLocation();
+        Vector direction = eyeLoc.getDirection().normalize().multiply(0.5);
+        Location markerLoc = eyeLoc.add(direction);
+
+        // 记录当前区块坐标作为对角
+        Chunk chunk = pl.getLocation().getChunk();
+        int[] currentCorner = {chunk.getX(), chunk.getZ()};
+
+        // 检查是否已有第一个对角
+        int[] corner1 = frameSelectionCorner1.get(playerName);
+        if (corner1 == null) {
+            // 记录第一个对角
+            Item markerItem = pl.getWorld().dropItem(markerLoc, new ItemStack(Material.FILLED_MAP));
+            markerItem.setPickupDelay(Integer.MAX_VALUE);
+            markerItem.setVelocity(new Vector(0, 0, 0));
+            markerItem.setGravity(false);
+            markerItem.setGlowing(true);
+
+            frameSelectionCorner1.put(playerName, currentCorner);
+            frameSelectionMarker1.put(playerName, markerItem);
+
+            // 5秒后自动移除标记
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    Item marker = frameSelectionMarker1.remove(playerName);
+                    if (marker != null && !marker.isDead()) {
+                        marker.remove();
+                    }
+                    frameSelectionCorner1.remove(playerName);
+                }
+            }.runTaskLater(get(), 100L); // 5秒 = 100 ticks
+
+            pl.sendMessage("§b已记录第一个对角 §7(" + currentCorner[0] + ", " + currentCorner[1] + ")");
+            pl.sendMessage("§7请在5秒内丢出地图选择第二个对角");
+        } else {
+            // 记录第二个对角并执行框选
+            Item marker1 = frameSelectionMarker1.remove(playerName);
+            if (marker1 != null && !marker1.isDead()) {
+                marker1.remove();
+            }
+            frameSelectionCorner1.remove(playerName);
+
+            // 生成第二个标记（也会在5秒后消失）
+            Item markerItem2 = pl.getWorld().dropItem(markerLoc, new ItemStack(Material.FILLED_MAP));
+            markerItem2.setPickupDelay(Integer.MAX_VALUE);
+            markerItem2.setVelocity(new Vector(0, 0, 0));
+            markerItem2.setGravity(false);
+            markerItem2.setGlowing(true);
+
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!markerItem2.isDead()) {
+                        markerItem2.remove();
+                    }
+                }
+            }.runTaskLater(get(), 100L);
+
+            pl.sendMessage("§b已记录第二个对角 §7(" + currentCorner[0] + ", " + currentCorner[1] + ")");
+
+            // 框选两对角间所有的区块
+            int minX = Math.min(corner1[0], currentCorner[0]);
+            int maxX = Math.max(corner1[0], currentCorner[0]);
+            int minZ = Math.min(corner1[1], currentCorner[1]);
+            int maxZ = Math.max(corner1[1], currentCorner[1]);
+
+            int addedCount = 0;
+            int skippedCount = 0;
+            World world = pl.getWorld();
+
+            for (int cx = minX; cx <= maxX; cx++) {
+                for (int cz = minZ; cz <= maxZ; cz++) {
+                    long chunkKey = ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+
+                    // 检查是否已被其他领地占用
+                    boolean occupied = false;
+                    for (LandInfoManager.LandInfo info : landInfoMap.values()) {
+                        if (!info.getLandId().equals(editingLandId)) {
+                            for (Long existingChunk : info.getLandPile()) {
+                                if (existingChunk.equals(chunkKey)) {
+                                    occupied = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (occupied) break;
+                    }
+
+                    if (occupied) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    LinkedHashSet<Long> pending = pendingChunks.get(playerName);
+                    if (pending == null) {
+                        pending = new LinkedHashSet<>();
+                        pendingChunks.put(playerName, pending);
+                    }
+
+                    if (!pending.contains(chunkKey)) {
+                        pending.add(chunkKey);
+                        startParticleEffect(chunkKey, world);
+                        GlassUtil.placeGlass(chunkKey, world);
+                        addedCount++;
+                    }
+                }
+            }
+
+            pl.sendMessage("§b框选完成！§7添加了 §e" + addedCount + " §7个区块" +
+                    (skippedCount > 0 ? "，§c跳过 " + skippedCount + " 个已占用区块" : ""));
+            pl.sendMessage("§7输入 §e/land confirm §7完成 | §e/land cancel §7取消");
+        }
+    }
+
+    @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         String name = event.getPlayer().getName();
         World world = pendingWorlds.get(name);
@@ -76,6 +214,13 @@ public class LandCreationListener implements Listener {
             }
         }
         pendingWorlds.remove(name);
+
+        // 清理框选法相关数据
+        Item marker = frameSelectionMarker1.remove(name);
+        if (marker != null && !marker.isDead()) {
+            marker.remove();
+        }
+        frameSelectionCorner1.remove(name);
     }
 
     private void handleAddChunk(Player pl, String playerName, Long chunkKey, Chunk chunk) {

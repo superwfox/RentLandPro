@@ -1,9 +1,10 @@
-QQGroupId: "123456789"
+QQGroupId: "1076566686"
 #群号 ： 字符串类型（请加上双引号）
 
-ChunkPricePerDay: 5
+ChunkPricePerDay: 1
 #每区块每天租金（经验等级）
 
 OpQQ:
-  - "10001"
+  - "2054565750"
+  - "2963502563"
 #管理员QQ列表

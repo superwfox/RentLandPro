@@ -1,5 +1,6 @@
 package sudark2.Sudark.rentLandPro.Listener;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -37,6 +38,15 @@ public class LandMembersMenuListener implements Listener {
         int slot = event.getSlot();
         ClickType click = event.getClick();
 
+        // 阻止所有可能将物品移出菜单的操作（shift-click, number key, double click等）
+        if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT ||
+            click == ClickType.NUMBER_KEY || click == ClickType.DOUBLE_CLICK ||
+            click == ClickType.SWAP_OFFHAND || click == ClickType.CONTROL_DROP ||
+            click == ClickType.CREATIVE || click == ClickType.MIDDLE) {
+            event.setCancelled(true);
+            return;
+        }
+
         if (clickedInv == topInv) {
             event.setCancelled(true);
 
@@ -68,7 +78,6 @@ public class LandMembersMenuListener implements Listener {
             ItemStack clickedItem = event.getCurrentItem();
             if (clickedItem == null || clickedItem.getType() != Material.PLAYER_HEAD) return;
             String memberQQ = extractQQFromItem(clickedItem);
-            System.out.println(memberQQ);
             if (memberQQ == null) return;
 
             if (click == ClickType.LEFT) {
@@ -84,17 +93,20 @@ public class LandMembersMenuListener implements Listener {
             }
 
         } else if (clickedInv == pl.getInventory()) {
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem != null && clickedItem.getType() == Material.PLAYER_HEAD) {
+            // 玩家背包中的槽位9-35是临时存放头颅的区域，阻止所有操作
+            if (slot >= 9 && slot <= 35) {
                 event.setCancelled(true);
-                if (click == ClickType.LEFT) {
-                    String playerName = getPlayerNameFromHead(clickedItem);
-                    if (playerName != null) {
-                        String playerQQ = IdentityUtil.getUserQQ(playerName);
-                        addMember(pl, landId, playerQQ);
-                        skipNextClose.add(pl.getName());
-                        pl.closeInventory();
-                        LandMembersMenu.openLandMembersMenu(pl, landId, currentPage.getOrDefault(pl.getName(), 0));
+                ItemStack clickedItem = event.getCurrentItem();
+                if (clickedItem != null && clickedItem.getType() == Material.PLAYER_HEAD) {
+                    if (click == ClickType.LEFT) {
+                        String playerName = getPlayerNameFromHead(clickedItem);
+                        if (playerName != null) {
+                            String playerQQ = IdentityUtil.getUserQQ(playerName);
+                            addMember(pl, landId, playerQQ);
+                            skipNextClose.add(pl.getName());
+                            pl.closeInventory();
+                            LandMembersMenu.openLandMembersMenu(pl, landId, currentPage.getOrDefault(pl.getName(), 0));
+                        }
                     }
                 }
             }
@@ -119,7 +131,13 @@ public class LandMembersMenuListener implements Listener {
 
         Player pl = (Player) event.getPlayer();
         if (skipNextClose.remove(pl.getName())) return;
-        LandMembersMenu.restoreInventory(pl);
+        
+        // 延迟1tick恢复物品栏，确保关闭事件完全处理完毕
+        Bukkit.getScheduler().runTaskLater(
+            Bukkit.getPluginManager().getPlugin("RentLandPro"),
+            () -> LandMembersMenu.restoreInventory(pl),
+            1L
+        );
     }
 
     private String getPlayerNameFromHead(ItemStack item) {
