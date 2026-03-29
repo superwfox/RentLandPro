@@ -14,9 +14,11 @@ public class OneBotApi {
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy/M/d-HH:mm");
 
     public static void sendG(String message) {
+        if (client == null || !client.isOpen()) return;
+
         JsonObject params = new JsonObject();
         params.addProperty("group_id", ConfigManager.GroupId);
-        params.addProperty("message", message);
+        params.addProperty("message", stripColor(message));
         params.addProperty("auto_escape", false);
 
         JsonObject request = new JsonObject();
@@ -31,9 +33,11 @@ public class OneBotApi {
     }
 
     public static void sendP(String userQQ, String message) {
+        if (client == null || !client.isOpen()) return;
+
         JsonObject params = new JsonObject();
         params.addProperty("user_id", userQQ);
-        params.addProperty("message", message);
+        params.addProperty("message", stripColor(message));
         params.addProperty("auto_escape", false);
 
         JsonObject request = new JsonObject();
@@ -48,6 +52,8 @@ public class OneBotApi {
     }
 
     public static void sendGroupAt(String userQQ) {
+        if (client == null || !client.isOpen()) return;
+
         JsonObject atData = new JsonObject();
         atData.addProperty("qq", userQQ);
 
@@ -75,20 +81,25 @@ public class OneBotApi {
 
     public static void sendLandCreatedNotice(String playerName, String ownerQQ, int chunkCount, int duration) {
         String timeStr = LocalDateTime.now().format(TIME_FMT);
-        String msg = "§b[RENTLAND]\n" +
+        String msg = "[RENTLAND]\n" +
                 "==============\n" +
-                "§f地主：§e" + playerName + "\n" +
-                "§f面积：§b" + chunkCount + " §7区块\n" +
-                "§f租期：§e" + duration + " §7天\n" +
+                "地主：" + playerName + "\n" +
+                "面积：" + chunkCount + " 区块\n" +
+                "租期：" + duration + " 天\n" +
                 "==============\n" +
-                "§7[ " + timeStr + " ]";
+                "[ " + timeStr + " ]";
 
         sendG(msg);
         sendGroupAt(ownerQQ);
     }
 
     public static void sendVisitorAlert(String ownerQQ, String visitorName, String landName) {
-        String msg = "§e[领地提醒] §f玩家 §b" + visitorName + " §f进入了您的领地 §e" + landName;
+        String msg = "[领地提醒] 玩家 " + visitorName + " 进入了您的领地 " + landName;
         sendP(ownerQQ, msg);
+    }
+
+    private static String stripColor(String msg) {
+        if (msg == null) return "";
+        return msg.replaceAll("§[0-9a-fk-or]", "");
     }
 }

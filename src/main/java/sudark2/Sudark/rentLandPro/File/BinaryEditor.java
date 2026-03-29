@@ -105,7 +105,7 @@ public class BinaryEditor {
                 }
 
                 LandInfoManager.landInfoMap.put(
-                        landId, new LandInfoManager.LandInfo(landName, ownerQQ, duration, signature, pile, teleportPoint));
+                        landId, new LandInfoManager.LandInfo(landId, landName, ownerQQ, duration, signature, pile, teleportPoint));
             }
 
         } catch (IOException e) {

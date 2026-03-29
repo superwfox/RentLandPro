@@ -6,27 +6,20 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class LandInfoManager {
 
-    public static ConcurrentHashMap<
-            Long,// chunkKey
-            LandInfo
-            > landInfoMap = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<Long, LandInfo> landInfoMap = new ConcurrentHashMap<>();
 
-    public static void createLandInfo(Long landId, String landName, String landOwner, int landPrice, Material landSignature, Long[] landPile) {
-        landInfoMap.put(landId, new LandInfo(landName, landOwner, landPrice, landSignature, landPile));
-        BinaryEditor.writeLandInfo();
-    }
-
-    public static void removeLandInfo(Long landId) {
-        landInfoMap.remove(landId);
-        BinaryEditor.writeLandInfo();
-    }
-
-    public static LandInfo getLandInfo(Long landId) {
-        return landInfoMap.get(landId);
+    public static LandInfo findByChunk(Long chunkKey) {
+        for (LandInfo info : landInfoMap.values()) {
+            for (Long ck : info.getLandPile()) {
+                if (ck.equals(chunkKey)) return info;
+            }
+        }
+        return null;
     }
 
     public static class LandInfo {
 
+        private final Long landId;
         private String landName;
         private String landOwnerQQ;
         private int landDuration;
@@ -34,7 +27,8 @@ public class LandInfoManager {
         private Long[] landPile;
         private int[] teleportPoint;
 
-        public LandInfo(String landName, String landOwnerQQ, int landDuration, Material landSignature, Long[] landPile, int[] teleportPoint) {
+        public LandInfo(Long landId, String landName, String landOwnerQQ, int landDuration, Material landSignature, Long[] landPile, int[] teleportPoint) {
+            this.landId = landId;
             this.landName = landName;
             this.landOwnerQQ = landOwnerQQ;
             this.landDuration = landDuration;
@@ -69,12 +63,38 @@ public class LandInfoManager {
             return landPile;
         }
 
+        public void setLandPile(Long[] landPile) {
+            this.landPile = landPile;
+        }
+
         public void addChunkToPile(Long chunkKey) {
+            for (Long existing : landPile) {
+                if (existing.equals(chunkKey)) return;
+            }
             Long[] newPile = new Long[landPile.length + 1];
             System.arraycopy(landPile, 0, newPile, 0, landPile.length);
             newPile[landPile.length] = chunkKey;
             this.landPile = newPile;
             BinaryEditor.writeLandInfo();
+        }
+
+        public boolean removeChunkFromPile(Long chunkKey) {
+            int index = -1;
+            for (int i = 0; i < landPile.length; i++) {
+                if (landPile[i].equals(chunkKey)) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index == -1) return false;
+            if (landPile.length == 1) return false;
+
+            Long[] newPile = new Long[landPile.length - 1];
+            System.arraycopy(landPile, 0, newPile, 0, index);
+            System.arraycopy(landPile, index + 1, newPile, index, landPile.length - index - 1);
+            this.landPile = newPile;
+            BinaryEditor.writeLandInfo();
+            return true;
         }
 
         public int[] getTeleportPoint() {
@@ -87,7 +107,7 @@ public class LandInfoManager {
         }
 
         public Long getLandId() {
-            return landPile[0];
+            return landId;
         }
 
         public Material getLandSignature() {

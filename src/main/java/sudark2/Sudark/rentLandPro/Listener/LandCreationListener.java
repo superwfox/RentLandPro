@@ -6,12 +6,19 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import sudark2.Sudark.rentLandPro.File.BinaryEditor;
+import sudark2.Sudark.rentLandPro.File.ConfigManager;
+import sudark2.Sudark.rentLandPro.File.LandFunctionsManager;
 import sudark2.Sudark.rentLandPro.File.LandInfoManager;
 import sudark2.Sudark.rentLandPro.File.LandMembersManager;
 import sudark2.Sudark.rentLandPro.OneBotRelated.OneBotApi;
 import sudark2.Sudark.rentLandPro.Util.ChunkKeyUtil;
+import sudark2.Sudark.rentLandPro.Util.GlassUtil;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
+import sudark2.Sudark.rentLandPro.Util.ItemUtil;
+import sudark2.Sudark.rentLandPro.Util.LocationUtil;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,36 +28,61 @@ import static sudark2.Sudark.rentLandPro.RentLandPro.get;
 
 public class LandCreationListener implements Listener {
 
-    // 玩家正在编辑的领地ID（书与笔模式）
     public static final ConcurrentHashMap<String, Long> editingLand = new ConcurrentHashMap<>();
-
-    // 粒子效果任务
+    public static final ConcurrentHashMap<String, LinkedHashSet<Long>> pendingChunks = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, BukkitRunnable> particleTasks = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, World> pendingWorlds = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Set<Long>> originalChunks = new ConcurrentHashMap<>();
 
-    // 橙黄渐变粒子
     private static final Particle.DustTransition DUST_TRANSITION = new Particle.DustTransition(
-            Color.ORANGE, Color.YELLOW, 1.0f);
+            Color.ORANGE, Color.YELLOW, 5.0f);
+
+    private static final int[] DX = {-1, 0, 1, -1, 1, -1, 0, 1};
+    private static final int[] DZ = {-1, -1, -1, 0, 0, 1, 1, 1};
 
     @EventHandler
-    public void onPlayerUseBookOnGround(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+    public void onPlayerUseMap(PlayerInteractEvent event) {
         if (event.getItem() == null) return;
-        if (event.getItem().getType() != Material.WRITABLE_BOOK) return;
-        if (event.getClickedBlock() == null) return;
+        if (event.getItem().getType() != Material.MAP && event.getItem().getType() != Material.FILLED_MAP) return;
+
+        Action action = event.getAction();
+        if (action != Action.RIGHT_CLICK_BLOCK && action != Action.LEFT_CLICK_BLOCK) return;
 
         event.setCancelled(true);
 
         Player pl = event.getPlayer();
         String playerName = pl.getName();
-        String qq = IdentityUtil.getUserQQ(playerName);
-        Chunk chunk = event.getClickedBlock().getChunk();
+        Chunk chunk = pl.getLocation().getChunk();
         Long chunkKey = ChunkKeyUtil.genKey(chunk);
 
-        // 检查该区块是否已被其他领地占用
+        boolean isRightClick = (action == Action.RIGHT_CLICK_BLOCK);
+
+        if (isRightClick) {
+            handleAddChunk(pl, playerName, chunkKey, chunk);
+        } else {
+            handleRemoveChunk(pl, playerName, chunkKey);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        String name = event.getPlayer().getName();
+        World world = pendingWorlds.get(name);
+        Set<Long> pending = pendingChunks.get(name);
+        if (pending != null && world != null) {
+            for (Long ck : pending) {
+                GlassUtil.removeGlass(ck, world);
+                stopParticleEffect(ck);
+            }
+        }
+        pendingWorlds.remove(name);
+    }
+
+    private void handleAddChunk(Player pl, String playerName, Long chunkKey, Chunk chunk) {
         for (LandInfoManager.LandInfo info : landInfoMap.values()) {
             for (Long existingChunk : info.getLandPile()) {
                 if (existingChunk.equals(chunkKey)) {
-                    pl.sendMessage("§e该区块已被领地 §b" + info.getLandName() + " §e占用");
+                    pl.sendMessage("§7该区块已被领地 §e" + info.getLandName() + " §7占用");
                     return;
                 }
             }
@@ -59,139 +91,265 @@ public class LandCreationListener implements Listener {
         Long editingLandId = editingLand.get(playerName);
 
         if (editingLandId == null) {
-            // 创建新领地
+            String qq = IdentityUtil.getUserQQ(playerName);
+            if (qq == null) {
+                pl.sendMessage("§e您尚未绑定QQ，无法创建领地");
+                return;
+            }
             createNewLand(pl, qq, chunkKey, chunk);
+            pl.setItemInHand(null);
+            pl.getInventory().addItem(ItemUtil.createMap(pl.getLocation()));
         } else {
-            // 扩展现有领地
             expandLand(pl, editingLandId, chunkKey, chunk);
         }
     }
 
+    private void handleRemoveChunk(Player pl, String playerName, Long chunkKey) {
+        Long editingLandId = editingLand.get(playerName);
+        if (editingLandId == null) {
+            pl.sendMessage("§7您当前没有正在编辑的领地");
+            return;
+        }
+
+        Set<Long> pending = pendingChunks.get(playerName);
+        if (pending == null || !pending.contains(chunkKey)) {
+            pl.sendMessage("§7该区块不在待添加列表中");
+            return;
+        }
+
+        if (chunkKey.equals(editingLandId)) {
+            pl.sendMessage("§e无法移除领地的起始区块");
+            return;
+        }
+
+        pending.remove(chunkKey);
+        stopParticleEffect(chunkKey);
+        GlassUtil.removeGlass(chunkKey, pl.getWorld());
+        pl.sendMessage("§7区块已移除 §7| §7剩余: §e" + pending.size() + " §7区块");
+    }
+
+    private boolean isAdjacentToExisting(Long chunkKey, Set<Long> existingChunks) {
+        if (existingChunks.isEmpty()) return true;
+
+        int chunkX = (int) (chunkKey >> 32);
+        int chunkZ = (int) (chunkKey & 0xFFFFFFFFL);
+
+        for (int i = 0; i < 8; i++) {
+            int adjX = chunkX + DX[i];
+            int adjZ = chunkZ + DZ[i];
+            long adjKey = ((long) adjX << 32) | (adjZ & 0xFFFFFFFFL);
+
+            if (existingChunks.contains(adjKey)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void createNewLand(Player pl, String qq, Long chunkKey, Chunk chunk) {
         String landName = "新领地-" + System.currentTimeMillis() % 10000;
-        int defaultDuration = 30;
         Material signature = Material.GRASS_BLOCK;
-        int[] teleportPoint = {chunk.getX() * 16 + 8, 64, chunk.getZ() * 16 + 8};
+        int[] teleportPoint = {chunk.getX() * 16 + 8, chunk.getZ() * 16 + 8};
 
         LandInfoManager.LandInfo newLand = new LandInfoManager.LandInfo(
-                landName, qq, defaultDuration, signature, new Long[]{chunkKey}, teleportPoint);
+                chunkKey, landName, qq, 1, signature, new Long[]{chunkKey}, teleportPoint);
 
         landInfoMap.put(chunkKey, newLand);
 
-        // 创建成员关系，地主自动成为 operator
         Set<String> ops = new HashSet<>();
         ops.add(qq);
         LandMembersManager.landMembers.put(chunkKey, new LandMembersManager.LandMembership(ops, new HashSet<>()));
 
-        // 保存
-        sudark2.Sudark.rentLandPro.File.BinaryEditor.saveAll();
-
-        // 更新所有在线玩家的拒绝区块集合
-        GeneralListener.rebuildAllPlayersDenyChunks();
-
-        // 进入编辑模式
+        LinkedHashSet<Long> pending = new LinkedHashSet<>();
+        pending.add(chunkKey);
+        pendingChunks.put(pl.getName(), pending);
         editingLand.put(pl.getName(), chunkKey);
+        pendingWorlds.put(pl.getName(), chunk.getWorld());
 
-        // 启动粒子效果
         startParticleEffect(chunkKey, chunk.getWorld());
+        GlassUtil.placeGlass(chunkKey, chunk.getWorld());
 
-        pl.sendMessage("§b领地创建成功！§f再次点击其他区块可扩展领地");
-        pl.sendMessage("§7输入 §e/land confirm §7完成创建");
-
-        // 发送群通知
-        OneBotApi.sendLandCreatedNotice(pl.getName(), qq, 1, defaultDuration);
+        pl.sendMessage("§b领地创建成功！");
+        pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
+        pl.sendMessage("§7输入 §e/land confirm [天数:可选] §7完成创建 | §e/land cancel§7 取消");
     }
 
     private void expandLand(Player pl, Long landId, Long chunkKey, Chunk chunk) {
         LandInfoManager.LandInfo info = landInfoMap.get(landId);
         if (info == null) {
             editingLand.remove(pl.getName());
+            pendingChunks.remove(pl.getName());
+            pendingWorlds.remove(pl.getName());
             pl.sendMessage("§e领地不存在，请重新创建");
             return;
         }
 
-        // 检查重复
-        for (Long existingChunk : info.getLandPile()) {
-            if (existingChunk.equals(chunkKey)) {
-                pl.sendMessage("§e该区块已在领地范围内");
-                return;
+        LinkedHashSet<Long> pending =  pendingChunks.get(pl.getName());
+        if (pending == null) {
+            pending = new LinkedHashSet<>();
+            for (Long existingChunk : info.getLandPile()) {
+                pending.add(existingChunk);
             }
+            pendingChunks.put(pl.getName(), pending);
         }
 
-        // 扩展领地
-        info.addChunkToPile(chunkKey);
-
-        // 更新所有在线玩家的拒绝区块集合
-        GeneralListener.updateDenyChunksForLand(landId, new Long[]{chunkKey});
-
-        // 启动该区块的粒子效果
-        startParticleEffect(chunkKey, chunk.getWorld());
-
-        pl.sendMessage("§b区块已添加到领地！§f当前领地面积: §e" + info.getLandPile().length + " §7区块");
-    }
-
-    public static void confirmLandCreation(Player pl) {
-        String playerName = pl.getName();
-        Long landId = editingLand.remove(playerName);
-
-        if (landId == null) {
-            pl.sendMessage("§e您当前没有正在编辑的领地");
+        if (pending.contains(chunkKey)) {
+            pl.sendMessage("§7该区块已在待添加列表中");
             return;
         }
 
-        // 停止所有该领地的粒子效果
+        if (!isAdjacentToExisting(chunkKey, pending)) {
+            pl.sendMessage("§e新区块必须与现有区块相邻");
+            return;
+        }
+
+        pending.add(chunkKey);
+        startParticleEffect(chunkKey, chunk.getWorld());
+        GlassUtil.placeGlass(chunkKey, chunk.getWorld());
+
+        pl.sendMessage("§7区块已添加 §7| §7当前: §e" + pending.size() + " §7区块");
+    }
+
+    public static void confirmLandCreation(Player pl, int days) {
+        String playerName = pl.getName();
+        Long landId = editingLand.remove(playerName);
+        LinkedHashSet<Long> pending = pendingChunks.remove(playerName);
+        World world = pendingWorlds.remove(playerName);
+        Set<Long> original = originalChunks.remove(playerName);
+
+        if (landId == null) {
+            pl.sendMessage("§7您当前没有正在编辑的领地");
+            return;
+        }
+
         LandInfoManager.LandInfo info = landInfoMap.get(landId);
-        if (info != null) {
-            for (Long chunkKey : info.getLandPile()) {
-                stopParticleEffect(chunkKey);
+        if (info == null || pending == null) return;
+
+        boolean isReshape = (original != null);
+        int duration;
+        int billableChunks;
+
+        if (isReshape) {
+            duration = info.getlandDuration();
+            billableChunks = 0;
+            for (Long ck : pending) {
+                if (!original.contains(ck)) billableChunks++;
             }
+        } else {
+            duration = days;
+            billableChunks = pending.size();
+            info.setLandDuration(days);
+        }
+
+        int cost = ConfigManager.calculateRentCost(billableChunks, duration);
+        if (cost > 0 && pl.getLevel() < cost) {
+            pl.sendMessage("§e经验不足！需要 §b" + cost + " §e级经验");
+            editingLand.put(playerName, landId);
+            pendingChunks.put(playerName, pending);
+            if (world != null) pendingWorlds.put(playerName, world);
+            if (original != null) originalChunks.put(playerName, original);
+            return;
+        }
+        if (cost > 0) pl.setLevel(pl.getLevel() - cost);
+
+        Long[] newPile = pending.toArray(new Long[0]);
+        info.setLandPile(newPile);
+        LandFunctionsManager.landFunctionFlags.putIfAbsent(landId, 0);
+
+        for (Long chunkKey : pending) {
+            stopParticleEffect(chunkKey);
+            if (world != null) GlassUtil.removeGlass(chunkKey, world);
+        }
+
+        if (!isReshape && pl.getInventory().getItemInMainHand().getType() == Material.FILLED_MAP) {
+            pl.getInventory().setItemInMainHand(null);
+        }
+
+        BinaryEditor.saveAll();
+        GeneralListener.rebuildAllPlayersDenyChunks();
+        LandFunctionsManager.rebuildWorldSets();
+
+        if (isReshape) {
+            pl.sendMessage("§b领地 §e" + info.getLandName() + " §b范围已更新！");
+            pl.sendMessage("§7面积: §e" + pending.size() + " §7区块 §7| §7新增: §e" + billableChunks + " §7| §7花费: §e" + cost + " §7级经验");
+        } else {
+            String ownerQQ = info.getLandOwnerQQ();
+            OneBotApi.sendLandCreatedNotice(playerName, ownerQQ, pending.size(), duration);
             pl.sendMessage("§b领地 §e" + info.getLandName() + " §b创建完成！");
-            pl.sendMessage("§7面积: §e" + info.getLandPile().length + " §7区块");
+            pl.sendMessage("§7面积: §e" + pending.size() + " §7区块 §7| §7租期: §e" + duration + " §7天 §7| §7花费: §e" + cost + " §7级经验");
         }
     }
 
     public static void cancelLandCreation(Player pl) {
         String playerName = pl.getName();
         Long landId = editingLand.remove(playerName);
+        Set<Long> pending = pendingChunks.remove(playerName);
+        World world = pendingWorlds.remove(playerName);
+        Set<Long> original = originalChunks.remove(playerName);
 
-        if (landId != null) {
+        if (landId == null) {
+            pl.sendMessage("§7您当前没有正在编辑的领地");
+            return;
+        }
+
+        if (pending != null) {
+            for (Long chunkKey : pending) {
+                stopParticleEffect(chunkKey);
+                if (world != null) GlassUtil.removeGlass(chunkKey, world);
+            }
+        }
+
+        if (original != null) {
             LandInfoManager.LandInfo info = landInfoMap.get(landId);
             if (info != null) {
-                for (Long chunkKey : info.getLandPile()) {
-                    stopParticleEffect(chunkKey);
-                }
+                info.setLandPile(original.toArray(new Long[0]));
             }
-            pl.sendMessage("§e已退出编辑模式");
+            pl.sendMessage("§7已取消领地范围修改");
+        } else {
+            landInfoMap.remove(landId);
+            LandMembersManager.landMembers.remove(landId);
+            pl.sendMessage("§7已取消领地创建");
         }
+    }
+
+    public static void cleanupAllPending() {
+        for (var entry : pendingChunks.entrySet()) {
+            World world = pendingWorlds.get(entry.getKey());
+            if (world == null) continue;
+            for (Long ck : entry.getValue()) {
+                GlassUtil.removeGlass(ck, world);
+                stopParticleEffect(ck);
+            }
+        }
+        pendingChunks.clear();
+        editingLand.clear();
+        pendingWorlds.clear();
+        originalChunks.clear();
+    }
+
+    public static void startParticleEffectStatic(Long chunkKey, World world) {
+        new LandCreationListener().startParticleEffect(chunkKey, world);
     }
 
     private void startParticleEffect(Long chunkKey, World world) {
         int chunkX = (int) (chunkKey >> 32);
         int chunkZ = (int) (chunkKey & 0xFFFFFFFFL);
-
-        double centerX = chunkX * 16 + 8;
-        double centerZ = chunkZ * 16 + 8;
+        int centerX = chunkX * 16 + 8;
+        int centerZ = chunkZ * 16 + 8;
 
         BukkitRunnable task = new BukkitRunnable() {
-            double y = 60;
-            boolean goingUp = true;
-
             @Override
             public void run() {
-                Location loc = new Location(world, centerX, y, centerZ);
-                world.spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 5, 0.5, 0.5, 0.5, DUST_TRANSITION);
-
-                if (goingUp) {
-                    y += 0.5;
-                    if (y >= 80) goingUp = false;
-                } else {
-                    y -= 0.5;
-                    if (y <= 60) goingUp = true;
+                int baseY = LocationUtil.getHighestSolidY(world, centerX, centerZ) + 1;
+                for (int y = 0; y <= 20; y++) {
+                    Location loc = new Location(world, centerX + 0.5, baseY + y, centerZ + 0.5);
+                    world.spawnParticle(Particle.DUST_COLOR_TRANSITION, loc, 3,
+                            0, 0, 0, DUST_TRANSITION);
                 }
             }
         };
 
-        task.runTaskTimer(get(), 0L, 5L);
+        task.runTaskTimer(get(), 0L, 15L);
         particleTasks.put(chunkKey, task);
     }
 

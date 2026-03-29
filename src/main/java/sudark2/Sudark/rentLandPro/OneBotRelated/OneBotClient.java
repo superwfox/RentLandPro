@@ -37,7 +37,6 @@ public class OneBotClient extends WebSocketClient {
                 try {
                     Thread.sleep(5000);
                 } catch (InterruptedException e) {
-                    //WARN 没有必要
                 }
                 this.reconnect();
             }).start();

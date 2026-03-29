@@ -1,5 +1,6 @@
 package sudark2.Sudark.rentLandPro.Listener;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -10,6 +11,7 @@ import sudark2.Sudark.rentLandPro.File.LandInfoManager;
 import sudark2.Sudark.rentLandPro.InventoryMenu.LandDetailsMenu;
 import sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
+import sudark2.Sudark.rentLandPro.Util.LocationUtil;
 
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu.landHomeMenuTitle;
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu.landInfoTempMap;
@@ -18,13 +20,12 @@ public class LandHomeMenuListener implements Listener {
 
     @EventHandler
     public void onLandHomeMenuClick(InventoryClickEvent event) {
-        // 只处理领地菜单
         if (!event.getView().getTitle().equals(landHomeMenuTitle)) return;
 
-        event.setCancelled(true); // 防止拿走物品
+        event.setCancelled(true);
 
         int slot = event.getSlot();
-        if (slot < 0) return; // 点击了窗口外
+        if (slot < 0) return;
 
         Player pl = (Player) event.getView().getPlayer();
         String qq = IdentityUtil.getUserQQ(pl.getName());
@@ -32,8 +33,6 @@ public class LandHomeMenuListener implements Listener {
         LandHomeMenu.PlayerLandCache cache = landInfoTempMap.get(qq);
         if (cache == null) return;
 
-        // 根据 slot 判断点击的是哪个领地
-        // 排列顺序：先 owning，再 operating
         LandInfoManager.LandInfo landInfo = getLandInfoBySlot(cache, slot);
         if (landInfo == null) return;
 
@@ -41,10 +40,15 @@ public class LandHomeMenuListener implements Listener {
         ClickType clickType = event.getClick();
 
         if (clickType == ClickType.LEFT) {
-            // TODO: 传送到领地
-            pl.sendMessage("§a传送至领地: " + landInfo.getLandName());
+            int[] tp = landInfo.getTeleportPoint();
+            if (tp != null && tp.length == 2) {
+                int y = LocationUtil.getHighestSolidY(pl.getWorld(), tp[0], tp[1]) + 1;
+                pl.teleport(new Location(pl.getWorld(), tp[0] + 0.5, y, tp[1] + 0.5));
+                pl.sendMessage("§a已传送至领地: " + landInfo.getLandName());
+            } else {
+                pl.sendMessage("§e该领地传送点未设置");
+            }
         } else if (clickType == ClickType.RIGHT && isOperator) {
-            // 只有 operator 才能右键打开设置
             LandDetailsMenu.openLandDetailsMenu(pl, landInfo);
         }
     }
@@ -64,7 +68,6 @@ public class LandHomeMenuListener implements Listener {
     public void onLandHomeMenuClose(InventoryCloseEvent event) {
         if (!event.getView().getTitle().equals(landHomeMenuTitle)) return;
 
-        // 玩家关闭菜单时清理缓存
         Player pl = (Player) event.getPlayer();
         String qq = IdentityUtil.getUserQQ(pl.getName());
         landInfoTempMap.remove(qq);

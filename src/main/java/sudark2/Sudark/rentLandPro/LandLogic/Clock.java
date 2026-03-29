@@ -21,7 +21,7 @@ public class Clock {
             public void run() {
                 updateAllLandDurations();
             }
-        }.runTaskTimer(get(), 20L * 60, 20L * 60 * 60 * 24); // 1分钟后首次执行，每24小时执行
+        }.runTaskTimer(get(), 20L * 60, 20L * 60 * 60 * 24);
     }
 
     public static void updateAllLandDurations() {
@@ -40,19 +40,17 @@ public class Clock {
             int newDuration = currentDuration - 1;
             info.setLandDuration(newDuration);
 
-            // 剩余天数提醒
             String ownerQQ = info.getLandOwnerQQ();
             if (newDuration == 5) {
-                OneBotApi.sendP(ownerQQ, "§e[领地提醒] §f您的领地 §b" + info.getLandName() + " §f剩余 §e5天 §f租期");
+                OneBotApi.sendP(ownerQQ, "[领地提醒] 您的领地 " + info.getLandName() + " 剩余 5天 租期");
             } else if (newDuration == 2) {
-                OneBotApi.sendP(ownerQQ, "§e[领地提醒] §f您的领地 §b" + info.getLandName() + " §f剩余 §e2天 §f租期，请尽快续费");
+                OneBotApi.sendP(ownerQQ, "[领地提醒] 您的领地 " + info.getLandName() + " 剩余 2天 租期，请尽快续费");
             } else if (newDuration == 0) {
-                OneBotApi.sendP(ownerQQ, "§e[领地警告] §f您的领地 §b" + info.getLandName() + " §f已停止保护！");
+                OneBotApi.sendP(ownerQQ, "[领地警告] 您的领地 " + info.getLandName() + " 已停止保护！");
                 expiredLands.add(landId);
             }
         }
 
-        // 处理过期领地
         for (Long landId : expiredLands) {
             removeLand(landId);
         }
@@ -74,11 +72,11 @@ public class Clock {
         LandMembersManager.landMembers.remove(landId);
         sudark2.Sudark.rentLandPro.File.LandFunctionsManager.landFunctionFlags.remove(landId);
 
-        // 更新所有在线玩家的拒绝区块集合（删除这些区块的限制）
         if (chunkKeys != null) {
             GeneralListener.updateDenyChunksForLand(landId, chunkKeys);
         }
 
         BinaryEditor.saveAll();
+        sudark2.Sudark.rentLandPro.File.LandFunctionsManager.rebuildWorldSets();
     }
 }

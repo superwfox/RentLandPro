@@ -1,54 +1,64 @@
 package sudark2.Sudark.rentLandPro.OneBotRelated;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import static sudark2.Sudark.rentLandPro.File.ConfigManager.GroupId;
 
 public class OneBotHandler {
 
     public static void MsgDivider(String rawMsg) {
-        JSONObject jsonObject = JSONObject.fromObject(rawMsg);
+        JsonObject jsonObject;
+        try {
+            jsonObject = JsonParser.parseString(rawMsg).getAsJsonObject();
+        } catch (Exception e) {
+            return;
+        }
 
-        if (jsonObject.containsKey("post_type")) {
+        if (!jsonObject.has("post_type")) return;
+        if (!jsonObject.has("message")) return;
 
-            JSONArray msgArray = jsonObject.getJSONArray("message");
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < msgArray.size(); i++) {
-                sb.append(parseMsg(msgArray.getJSONObject(i)));
+        JsonElement msgElement = jsonObject.get("message");
+        if (!msgElement.isJsonArray()) return;
+
+        JsonArray msgArray = msgElement.getAsJsonArray();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < msgArray.size(); i++) {
+            sb.append(parseMsg(msgArray.get(i).getAsJsonObject()));
+        }
+        String parsedMsg = sb.toString();
+
+        if (!jsonObject.has("message_type")) return;
+        String messageType = jsonObject.get("message_type").getAsString();
+
+        switch (messageType) {
+            case "private" -> {
+                JsonObject sender = jsonObject.getAsJsonObject("sender");
+                String userQQ = String.valueOf(sender.get("user_id").getAsLong());
+                PrivateCommandHandler.handle(userQQ, parsedMsg);
             }
-            String parsedMsg = sb.toString();
+            case "group" -> {
+                String groupId = String.valueOf(jsonObject.get("group_id").getAsLong());
+                if (!groupId.equals(GroupId)) return;
 
-            switch (jsonObject.getString("message_type")) {
-                case "private" -> PrivateMsgHandler(jsonObject.getJSONObject("sender"), parsedMsg);
-                case "group" -> GroupMsgHandler(jsonObject, parsedMsg);
+                JsonObject sender = jsonObject.getAsJsonObject("sender");
+                String userQQ = String.valueOf(sender.get("user_id").getAsLong());
+                GroupCommandHandler.handle(userQQ, parsedMsg);
             }
-
         }
     }
 
-    public static void PrivateMsgHandler(JSONObject msgSender, String msg) {
-
-    }
-
-    public static void GroupMsgHandler(JSONObject jsonObject, String msg) {
-        String groupId = String.valueOf(jsonObject.get("group_id"));
-        if(!groupId.equals(GroupId)) return;
-
-        JSONObject sender = jsonObject.getJSONObject("sender");
-        String userQQ = String.valueOf(sender.get("user_id"));
-
-    }
-
-    private static String parseMsg(JSONObject obj) {
+    private static String parseMsg(JsonObject obj) {
         StringBuilder mb = new StringBuilder();
-        String type = obj.optString("type");
+        String type = obj.has("type") ? obj.get("type").getAsString() : "";
         switch (type) {
-            case "text" -> mb.append(obj.getJSONObject("data").getString("text"));
+            case "text" -> mb.append(obj.getAsJsonObject("data").get("text").getAsString());
             case "face" -> mb.append("[表情]");
             case "image" -> mb.append("[图片]");
             case "at" -> {
-                String nickname = obj.getJSONObject("data").getString("name");
+                String nickname = obj.getAsJsonObject("data").get("name").getAsString();
                 mb.append("[@").append(nickname).append("]");
             }
             case "reply" -> mb.append("[回复]");

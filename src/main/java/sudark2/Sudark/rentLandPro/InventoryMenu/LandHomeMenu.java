@@ -27,8 +27,8 @@ public class LandHomeMenu {
     public static void openLandHomeMenu(Player pl) {
         String qq = IdentityUtil.getUserQQ(pl.getName());
 
-        List<LandInfoManager.LandInfo> operatorLands = new ArrayList<>();  // 有管理权限
-        List<LandInfoManager.LandInfo> memberLands = new ArrayList<>();    // 仅普通成员
+        List<LandInfoManager.LandInfo> operatorLands = new ArrayList<>();
+        List<LandInfoManager.LandInfo> memberLands = new ArrayList<>();
 
         for (var entry : landMembers.entrySet()) {
             Long landId = entry.getKey();

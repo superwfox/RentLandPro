@@ -3,6 +3,8 @@ package sudark2.Sudark.rentLandPro;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import sudark2.Sudark.rentLandPro.Command.CommandExecutor;
+import sudark2.Sudark.rentLandPro.Command.CommandTabCompleter;
 import sudark2.Sudark.rentLandPro.File.FileManager;
 import sudark2.Sudark.rentLandPro.LandLogic.Clock;
 import sudark2.Sudark.rentLandPro.Listener.*;
@@ -25,15 +27,18 @@ public final class RentLandPro extends JavaPlugin {
         }
 
         FileManager.init();
+        sudark2.Sudark.rentLandPro.File.LandFunctionsManager.rebuildWorldSets();
 
-        // 注册所有监听器
         Bukkit.getPluginManager().registerEvents(new GeneralListener(), this);
         Bukkit.getPluginManager().registerEvents(new LandHomeMenuListener(), this);
         Bukkit.getPluginManager().registerEvents(new LandDetailsMenuListener(), this);
         Bukkit.getPluginManager().registerEvents(new LandFunctionsMenuListener(), this);
         Bukkit.getPluginManager().registerEvents(new LandCreationListener(), this);
+        Bukkit.getPluginManager().registerEvents(new LandMembersMenuListener(), this);
 
-        // 启动租期倒计时任务
+        getCommand("land").setExecutor(new CommandExecutor());
+        getCommand("land").setTabCompleter(new CommandTabCompleter());
+
         Clock.startDailyTask();
 
         getLogger().info("§bRentLandPro §f已加载");
@@ -41,6 +46,7 @@ public final class RentLandPro extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        LandCreationListener.cleanupAllPending();
         sudark2.Sudark.rentLandPro.File.BinaryEditor.saveAll();
         getLogger().info("§bRentLandPro §f已保存数据并卸载");
     }

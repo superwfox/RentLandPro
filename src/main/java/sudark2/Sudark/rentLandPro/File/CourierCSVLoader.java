@@ -3,7 +3,6 @@ package sudark2.Sudark.rentLandPro.File;
 import org.bukkit.Bukkit;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -13,7 +12,7 @@ public class CourierCSVLoader {
     public static ConcurrentHashMap<String,String> ID2QQ = new ConcurrentHashMap<>();
 
     public static void refresh() {
-        File csvFile = new File(Bukkit.getServer().getPluginManager().getPlugin("Courier").getDataFolder(), "courier.csv");
+        File csvFile = new File(Bukkit.getServer().getPluginsFolder(), "Courier/allowlist.csv");
 
         if(!csvFile.exists())return;
         QQ2ID.clear();
