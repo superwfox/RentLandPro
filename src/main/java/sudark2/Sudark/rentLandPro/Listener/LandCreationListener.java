@@ -42,6 +42,10 @@ public class LandCreationListener implements Listener {
     private static final ConcurrentHashMap<String, int[]> frameSelectionCorner1 = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, Item> frameSelectionMarker1 = new ConcurrentHashMap<>();
 
+    // 超时任务存储
+    private static final ConcurrentHashMap<String, BukkitRunnable> creationTimeoutTasks = new ConcurrentHashMap<>();
+    private static final long CREATION_TIMEOUT_TICKS = 20L * 60 * 5; // 5分钟 = 6000 ticks
+
     private static final Particle.DustTransition DUST_TRANSITION = new Particle.DustTransition(
             Color.ORANGE, Color.YELLOW, 5.0f);
 
@@ -204,6 +208,10 @@ public class LandCreationListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         String name = event.getPlayer().getName();
+        
+        // 取消超时任务
+        cancelCreationTimeout(name);
+        
         World world = pendingWorlds.get(name);
         Set<Long> pending = pendingChunks.get(name);
         if (pending != null && world != null) {
@@ -316,6 +324,10 @@ public class LandCreationListener implements Listener {
         pl.sendMessage("§b领地创建成功！");
         pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
         pl.sendMessage("§7输入 §e/land confirm [天数:可选] §7完成创建 | §e/land cancel§7 取消");
+        pl.sendMessage("§c注意：5分钟内未完成将自动取消");
+
+        // 启动超时任务
+        startCreationTimeout(pl.getName());
     }
 
     private void expandLand(Player pl, Long landId, Long chunkKey, Chunk chunk) {
@@ -356,6 +368,7 @@ public class LandCreationListener implements Listener {
 
     public static void confirmLandCreation(Player pl, int days) {
         String playerName = pl.getName();
+        cancelCreationTimeout(playerName);
         Long landId = editingLand.remove(playerName);
         LinkedHashSet<Long> pending = pendingChunks.remove(playerName);
         World world = pendingWorlds.remove(playerName);
@@ -426,6 +439,7 @@ public class LandCreationListener implements Listener {
 
     public static void cancelLandCreation(Player pl) {
         String playerName = pl.getName();
+        cancelCreationTimeout(playerName);
         Long landId = editingLand.remove(playerName);
         Set<Long> pending = pendingChunks.remove(playerName);
         World world = pendingWorlds.remove(playerName);
@@ -465,6 +479,11 @@ public class LandCreationListener implements Listener {
                 stopParticleEffect(ck);
             }
         }
+        // 取消所有超时任务
+        for (BukkitRunnable task : creationTimeoutTasks.values()) {
+            task.cancel();
+        }
+        creationTimeoutTasks.clear();
         pendingChunks.clear();
         editingLand.clear();
         pendingWorlds.clear();
@@ -501,6 +520,65 @@ public class LandCreationListener implements Listener {
         BukkitRunnable task = particleTasks.remove(chunkKey);
         if (task != null) {
             task.cancel();
+        }
+    }
+
+    private static void startCreationTimeout(String playerName) {
+        cancelCreationTimeout(playerName);
+
+        BukkitRunnable timeoutTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                creationTimeoutTasks.remove(playerName);
+
+                Long landId = editingLand.remove(playerName);
+                Set<Long> pending = pendingChunks.remove(playerName);
+                World world = pendingWorlds.remove(playerName);
+                Set<Long> original = originalChunks.remove(playerName);
+
+                if (landId == null) return;
+
+                // 清理玻璃和粒子效果
+                if (pending != null && world != null) {
+                    for (Long chunkKey : pending) {
+                        stopParticleEffect(chunkKey);
+                        GlassUtil.removeGlass(chunkKey, world);
+                    }
+                }
+
+                // 如果是新建领地则删除，如果是修改则恢复原状
+                if (original != null) {
+                    LandInfoManager.LandInfo info = landInfoMap.get(landId);
+                    if (info != null) {
+                        info.setLandPile(original.toArray(new Long[0]));
+                    }
+                } else {
+                    landInfoMap.remove(landId);
+                    LandMembersManager.landMembers.remove(landId);
+                }
+
+                // 通知玩家
+                Player pl = Bukkit.getPlayer(playerName);
+                if (pl != null && pl.isOnline()) {
+                    pl.sendMessage("§c领地创建超时，已自动取消");
+                }
+            }
+        };
+
+        timeoutTask.runTaskLater(get(), CREATION_TIMEOUT_TICKS);
+        creationTimeoutTasks.put(playerName, timeoutTask);
+    }
+
+    private static void cancelCreationTimeout(String playerName) {
+        BukkitRunnable task = creationTimeoutTasks.remove(playerName);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    public static void resetCreationTimeout(String playerName) {
+        if (editingLand.containsKey(playerName)) {
+            startCreationTimeout(playerName);
         }
     }
 }

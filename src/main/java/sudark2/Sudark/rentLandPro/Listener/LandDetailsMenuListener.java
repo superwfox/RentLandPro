@@ -115,10 +115,14 @@ public class LandDetailsMenuListener implements Listener {
                 LandCreationListener.pendingChunks.put(pl.getName(), pending);
                 LandCreationListener.originalChunks.put(pl.getName(), original);
 
+                // 启动超时任务
+                LandCreationListener.resetCreationTimeout(pl.getName());
+
                 pl.closeInventory();
                 pl.sendMessage("§7已进入领地范围编辑模式");
                 pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
                 pl.sendMessage("§7输入 §e/land confirm §7完成 | §e/land cancel §7取消");
+                pl.sendMessage("§c注意：5分钟内未完成将自动取消");
             }
         }
     }
