@@ -98,6 +98,46 @@ public class OneBotApi {
         sendP(ownerQQ, msg);
     }
 
+    public static void sendGroupAtWithMessage(String userQQ, String message) {
+        if (client == null || !client.isOpen()) return;
+
+        JsonObject atData = new JsonObject();
+        atData.addProperty("qq", userQQ);
+
+        JsonObject atSegment = new JsonObject();
+        atSegment.addProperty("type", "at");
+        atSegment.add("data", atData);
+
+        JsonObject textData = new JsonObject();
+        textData.addProperty("text", " " + stripColor(message));
+
+        JsonObject textSegment = new JsonObject();
+        textSegment.addProperty("type", "text");
+        textSegment.add("data", textData);
+
+        JsonArray msgArray = new JsonArray();
+        msgArray.add(atSegment);
+        msgArray.add(textSegment);
+
+        JsonObject params = new JsonObject();
+        params.addProperty("group_id", ConfigManager.GroupId);
+        params.add("message", msgArray);
+
+        JsonObject request = new JsonObject();
+        request.addProperty("action", "send_group_msg");
+        request.add("params", params);
+
+        try {
+            client.send(request.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void sendLandReturnNotice(String ownerQQ, String landName) {
+        sendGroupAtWithMessage(ownerQQ, "您的领地「" + landName + "」已被管理员收回，详细缘由请进一步咨询");
+    }
+
     private static String stripColor(String msg) {
         if (msg == null) return "";
         return msg.replaceAll("§[0-9a-fk-or]", "");
