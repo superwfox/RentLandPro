@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandDetailsMenu.LandDetailsMenuTitle;
+import static sudark2.Sudark.rentLandPro.Util.ItemUtil.createMap;
 
 public class LandDetailsMenuListener implements Listener {
 
@@ -117,12 +118,16 @@ public class LandDetailsMenuListener implements Listener {
 
                 // 启动超时任务
                 LandCreationListener.resetCreationTimeout(pl.getName());
+                if (pl.getItemInHand().isEmpty())
+                    pl.setItemInHand(createMap(pl.getLocation()));
+                else
+                    pl.getInventory().addItem(createMap(pl.getLocation()));
 
                 pl.closeInventory();
                 pl.sendMessage("§7已进入领地范围编辑模式");
                 pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
                 pl.sendMessage("§7输入 §e/land confirm §7完成 | §e/land cancel §7取消");
-                pl.sendMessage("§c注意：5分钟内未完成将自动取消");
+                pl.sendMessage("[ 5分钟内未完成将自动取消 ]");
             }
         }
     }

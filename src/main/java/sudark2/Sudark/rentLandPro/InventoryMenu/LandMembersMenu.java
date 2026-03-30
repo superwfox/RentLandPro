@@ -9,6 +9,7 @@ import sudark2.Sudark.rentLandPro.File.LandMembersManager;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +49,7 @@ public class LandMembersMenu {
             pl.getInventory().setItem(i, null);
         }
         InventoryTempStorage.put(pl.getName(), backup);
+       // System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
 
         Set<String> allMemberQQs = new java.util.HashSet<>();
         allMemberQQs.addAll(membership.operators());
@@ -101,14 +103,4 @@ public class LandMembersMenu {
         pl.openInventory(inv);
     }
 
-    public static void restoreInventory(Player pl) {
-        ItemStack[] stored = InventoryTempStorage.remove(pl.getName());
-        if (stored != null) {
-            for (int i = 0; i < 27; i++) {
-                pl.getInventory().setItem(9 + i, stored[i]);
-            }
-        }
-        editingLandId.remove(pl.getName());
-        currentPage.remove(pl.getName());
-    }
 }

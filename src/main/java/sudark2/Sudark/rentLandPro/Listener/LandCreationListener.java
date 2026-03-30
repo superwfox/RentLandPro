@@ -121,10 +121,10 @@ public class LandCreationListener implements Listener {
                     }
                     frameSelectionCorner1.remove(playerName);
                 }
-            }.runTaskLater(get(), 100L); // 5秒 = 100 ticks
+            }.runTaskLater(get(), 240 * 20L);
 
-            pl.sendMessage("§b已记录第一个对角 §7(" + currentCorner[0] + ", " + currentCorner[1] + ")");
-            pl.sendMessage("§7请在5秒内丢出地图选择第二个对角");
+            pl.sendMessage("§b已记录第一个对角 §e(" + currentCorner[0] + ", " + currentCorner[1] + ")");
+            pl.sendMessage("[ 请在4分钟内丢出地图选择第二个对角 ]");
         } else {
             // 记录第二个对角并执行框选
             Item marker1 = frameSelectionMarker1.remove(playerName);
@@ -321,10 +321,9 @@ public class LandCreationListener implements Listener {
         startParticleEffect(chunkKey, chunk.getWorld());
         GlassUtil.placeGlass(chunkKey, chunk.getWorld());
 
-        pl.sendMessage("§b领地创建成功！");
         pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
         pl.sendMessage("§7输入 §e/land confirm [天数:可选] §7完成创建 | §e/land cancel§7 取消");
-        pl.sendMessage("§c注意：5分钟内未完成将自动取消");
+        pl.sendMessage("[ 5分钟内未完成将自动取消 ]");
 
         // 启动超时任务
         startCreationTimeout(pl.getName());

@@ -11,6 +11,12 @@ public class FileManager {
     public static final String FunctionsFileName = "functions.dat";
 
     public static void init() {
+        // 确保插件数据目录存在
+        File dataFolder = get().getDataFolder();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+
         checkFile(LandInfoFileName);
         checkFile(PermissionFileName);
         checkFile(FunctionsFileName);

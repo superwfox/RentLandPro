@@ -18,8 +18,11 @@ import sudark2.Sudark.rentLandPro.File.LandMembersManager;
 import sudark2.Sudark.rentLandPro.InventoryMenu.LandMembersMenu;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
 
+import java.util.Arrays;
+
 import static sudark2.Sudark.rentLandPro.File.LandMembersManager.landMembers;
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandMembersMenu.*;
+import static sudark2.Sudark.rentLandPro.RentLandPro.get;
 import static sudark2.Sudark.rentLandPro.Util.ItemUtil.extractQQFromItem;
 import static sudark2.Sudark.rentLandPro.Util.ItemUtil.qqPrefix;
 
@@ -40,9 +43,9 @@ public class LandMembersMenuListener implements Listener {
 
         // 阻止所有可能将物品移出菜单的操作（shift-click, number key, double click等）
         if (click == ClickType.SHIFT_LEFT || click == ClickType.SHIFT_RIGHT ||
-            click == ClickType.NUMBER_KEY || click == ClickType.DOUBLE_CLICK ||
-            click == ClickType.SWAP_OFFHAND || click == ClickType.CONTROL_DROP ||
-            click == ClickType.CREATIVE || click == ClickType.MIDDLE) {
+                click == ClickType.NUMBER_KEY || click == ClickType.DOUBLE_CLICK ||
+                click == ClickType.SWAP_OFFHAND || click == ClickType.CONTROL_DROP ||
+                click == ClickType.CREATIVE || click == ClickType.MIDDLE) {
             event.setCancelled(true);
             return;
         }
@@ -131,13 +134,25 @@ public class LandMembersMenuListener implements Listener {
 
         Player pl = (Player) event.getPlayer();
         if (skipNextClose.remove(pl.getName())) return;
-        
-        // 延迟1tick恢复物品栏，确保关闭事件完全处理完毕
-        Bukkit.getScheduler().runTaskLater(
-            Bukkit.getPluginManager().getPlugin("RentLandPro"),
-            () -> LandMembersMenu.restoreInventory(pl),
-            1L
-        );
+
+        if (!InventoryTempStorage.containsKey(pl.getName())) return;
+       // System.out.println("restore inventory");
+      //  System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
+//        Bukkit.getScheduler().runTaskLater(get(), () ->
+        restoreInventory(pl);
+//                , 1L
+//        );
+    }
+
+    public static void restoreInventory(Player pl) {
+        ItemStack[] stored = InventoryTempStorage.remove(pl.getName());
+        if (stored != null) {
+            for (int i = 0; i < 27; i++) {
+                pl.getInventory().setItem(9 + i, stored[i]);
+            }
+        }
+        editingLandId.remove(pl.getName());
+        currentPage.remove(pl.getName());
     }
 
     private String getPlayerNameFromHead(ItemStack item) {
