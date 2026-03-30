@@ -133,11 +133,11 @@ public class LandMembersMenuListener implements Listener {
         if (!event.getView().getTitle().equals(LanMembersMenuTitle)) return;
 
         Player pl = (Player) event.getPlayer();
-        if (skipNextClose.remove(pl.getName())) return;
+        if (skipNextClose.contains(pl.getName())) return;
 
         if (!InventoryTempStorage.containsKey(pl.getName())) return;
-       // System.out.println("restore inventory");
-      //  System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
+        // System.out.println("restore inventory");
+        //  System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
 //        Bukkit.getScheduler().runTaskLater(get(), () ->
         restoreInventory(pl);
 //                , 1L

@@ -43,13 +43,9 @@ public class LandMembersMenu {
         editingLandId.put(pl.getName(), landId);
         currentPage.put(pl.getName(), page);
 
-        ItemStack[] backup = new ItemStack[27];
-        for (int i = 9; i <= 35; i++) {
-            backup[i - 9] = pl.getInventory().getItem(i);
-            pl.getInventory().setItem(i, null);
-        }
-        InventoryTempStorage.put(pl.getName(), backup);
-       // System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
+        storePlayerInv(pl, skipNextClose.remove(pl.getName()));
+
+        // System.out.println(Arrays.toString(InventoryTempStorage.get(pl.getName())));
 
         Set<String> allMemberQQs = new java.util.HashSet<>();
         allMemberQQs.addAll(membership.operators());
@@ -101,6 +97,15 @@ public class LandMembersMenu {
         inv.setItem(49, createOption(Material.BARRIER, "§e关闭并恢复背包", "§7点击关闭菜单"));
 
         pl.openInventory(inv);
+    }
+
+    public static void storePlayerInv(Player pl, boolean noUpdate) {
+        ItemStack[] backup = new ItemStack[27];
+        for (int i = 9; i <= 35; i++) {
+            backup[i - 9] = pl.getInventory().getItem(i);
+            pl.getInventory().setItem(i, null);
+        }
+        if (!noUpdate) InventoryTempStorage.put(pl.getName(), backup);
     }
 
 }
