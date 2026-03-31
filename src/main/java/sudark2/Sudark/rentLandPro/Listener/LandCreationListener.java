@@ -10,6 +10,8 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.MapMeta;
+import org.bukkit.map.MapView;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 import sudark2.Sudark.rentLandPro.File.BinaryEditor;
@@ -19,9 +21,9 @@ import sudark2.Sudark.rentLandPro.File.LandInfoManager;
 import sudark2.Sudark.rentLandPro.File.LandMembersManager;
 import sudark2.Sudark.rentLandPro.OneBotRelated.OneBotApi;
 import sudark2.Sudark.rentLandPro.Util.ChunkKeyUtil;
-import sudark2.Sudark.rentLandPro.Util.GlassUtil;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
-import sudark2.Sudark.rentLandPro.Util.ItemUtil;
+import sudark2.Sudark.rentLandPro.Util.LandMapRenderer;
+import sudark2.Sudark.rentLandPro.Util.LevelNameUtil;
 import sudark2.Sudark.rentLandPro.Util.LocationUtil;
 
 import java.util.*;
@@ -37,6 +39,9 @@ public class LandCreationListener implements Listener {
     private static final ConcurrentHashMap<Long, BukkitRunnable> particleTasks = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<String, World> pendingWorlds = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Set<Long>> originalChunks = new ConcurrentHashMap<>();
+
+    // 地图视图追踪
+    public static final ConcurrentHashMap<String, MapView> playerMapViews = new ConcurrentHashMap<>();
 
     // 框选法相关数据结构
     private static final ConcurrentHashMap<String, int[]> frameSelectionCorner1 = new ConcurrentHashMap<>();
@@ -63,6 +68,8 @@ public class LandCreationListener implements Listener {
         event.setCancelled(true);
 
         Player pl = event.getPlayer();
+        if (!isMainWorld(pl)) return;
+
         String playerName = pl.getName();
         Chunk chunk = pl.getLocation().getChunk();
         Long chunkKey = ChunkKeyUtil.genKey(chunk);
@@ -87,6 +94,8 @@ public class LandCreationListener implements Listener {
         // 检查玩家是否正在编辑领地
         Long editingLandId = editingLand.get(playerName);
         if (editingLandId == null) return;
+
+        if (!isMainWorld(pl)) return;
 
         event.setCancelled(true);
 
@@ -193,12 +202,12 @@ public class LandCreationListener implements Listener {
                     if (!pending.contains(chunkKey)) {
                         pending.add(chunkKey);
                         startParticleEffect(chunkKey, world);
-                        GlassUtil.placeGlass(chunkKey, world);
                         addedCount++;
                     }
                 }
             }
 
+            updateMapScale(playerName);
             pl.sendMessage("§b框选完成！§7添加了 §e" + addedCount + " §7个区块" +
                     (skippedCount > 0 ? "，§c跳过 " + skippedCount + " 个已占用区块" : ""));
             pl.sendMessage("§7输入 §e/land confirm §7完成 | §e/land cancel §7取消");
@@ -212,11 +221,10 @@ public class LandCreationListener implements Listener {
         // 取消超时任务
         cancelCreationTimeout(name);
         
-        World world = pendingWorlds.get(name);
+        cleanupMapView(name);
         Set<Long> pending = pendingChunks.get(name);
-        if (pending != null && world != null) {
+        if (pending != null) {
             for (Long ck : pending) {
-                GlassUtil.removeGlass(ck, world);
                 stopParticleEffect(ck);
             }
         }
@@ -250,7 +258,7 @@ public class LandCreationListener implements Listener {
             }
             createNewLand(pl, qq, chunkKey, chunk);
             pl.setItemInHand(null);
-            pl.getInventory().addItem(ItemUtil.createMap(pl.getLocation()));
+            pl.getInventory().addItem(createLandEditMap(pl, chunkKey));
         } else {
             expandLand(pl, editingLandId, chunkKey, chunk);
         }
@@ -276,7 +284,7 @@ public class LandCreationListener implements Listener {
 
         pending.remove(chunkKey);
         stopParticleEffect(chunkKey);
-        GlassUtil.removeGlass(chunkKey, pl.getWorld());
+        updateMapScale(playerName);
         pl.sendMessage("§7区块已移除 §7| §7剩余: §e" + pending.size() + " §7区块");
     }
 
@@ -319,7 +327,6 @@ public class LandCreationListener implements Listener {
         pendingWorlds.put(pl.getName(), chunk.getWorld());
 
         startParticleEffect(chunkKey, chunk.getWorld());
-        GlassUtil.placeGlass(chunkKey, chunk.getWorld());
 
         pl.sendMessage("§7右键 §f添加区块 §7| §7左键 §f取消区块");
         pl.sendMessage("§7输入 §e/land confirm [天数:可选] §7完成创建 | §e/land cancel§7 取消");
@@ -360,7 +367,7 @@ public class LandCreationListener implements Listener {
 
         pending.add(chunkKey);
         startParticleEffect(chunkKey, chunk.getWorld());
-        GlassUtil.placeGlass(chunkKey, chunk.getWorld());
+        updateMapScale(pl.getName());
 
         pl.sendMessage("§7区块已添加 §7| §7当前: §e" + pending.size() + " §7区块");
     }
@@ -412,9 +419,9 @@ public class LandCreationListener implements Listener {
         info.setLandPile(newPile);
         LandFunctionsManager.landFunctionFlags.putIfAbsent(landId, 0);
 
+        cleanupMapView(playerName);
         for (Long chunkKey : pending) {
             stopParticleEffect(chunkKey);
-            if (world != null) GlassUtil.removeGlass(chunkKey, world);
         }
 
         if (!isReshape && pl.getInventory().getItemInMainHand().getType() == Material.FILLED_MAP) {
@@ -441,7 +448,7 @@ public class LandCreationListener implements Listener {
         cancelCreationTimeout(playerName);
         Long landId = editingLand.remove(playerName);
         Set<Long> pending = pendingChunks.remove(playerName);
-        World world = pendingWorlds.remove(playerName);
+        pendingWorlds.remove(playerName);
         Set<Long> original = originalChunks.remove(playerName);
 
         if (landId == null) {
@@ -449,10 +456,10 @@ public class LandCreationListener implements Listener {
             return;
         }
 
+        cleanupMapView(playerName);
         if (pending != null) {
             for (Long chunkKey : pending) {
                 stopParticleEffect(chunkKey);
-                if (world != null) GlassUtil.removeGlass(chunkKey, world);
             }
         }
 
@@ -471,10 +478,8 @@ public class LandCreationListener implements Listener {
 
     public static void cleanupAllPending() {
         for (var entry : pendingChunks.entrySet()) {
-            World world = pendingWorlds.get(entry.getKey());
-            if (world == null) continue;
+            cleanupMapView(entry.getKey());
             for (Long ck : entry.getValue()) {
-                GlassUtil.removeGlass(ck, world);
                 stopParticleEffect(ck);
             }
         }
@@ -487,6 +492,7 @@ public class LandCreationListener implements Listener {
         editingLand.clear();
         pendingWorlds.clear();
         originalChunks.clear();
+        playerMapViews.clear();
     }
 
     public static void startParticleEffectStatic(Long chunkKey, World world) {
@@ -532,16 +538,16 @@ public class LandCreationListener implements Listener {
 
                 Long landId = editingLand.remove(playerName);
                 Set<Long> pending = pendingChunks.remove(playerName);
-                World world = pendingWorlds.remove(playerName);
+                pendingWorlds.remove(playerName);
                 Set<Long> original = originalChunks.remove(playerName);
 
                 if (landId == null) return;
 
-                // 清理玻璃和粒子效果
-                if (pending != null && world != null) {
+                // 清理地图渲染器和粒子效果
+                cleanupMapView(playerName);
+                if (pending != null) {
                     for (Long chunkKey : pending) {
                         stopParticleEffect(chunkKey);
-                        GlassUtil.removeGlass(chunkKey, world);
                     }
                 }
 
@@ -579,5 +585,73 @@ public class LandCreationListener implements Listener {
         if (editingLand.containsKey(playerName)) {
             startCreationTimeout(playerName);
         }
+    }
+
+    public static ItemStack createLandEditMap(Player pl, Long landId) {
+        int chunkX = (int) (landId >> 32);
+        int chunkZ = (int) (landId & 0xFFFFFFFFL);
+
+        ItemStack item = new ItemStack(Material.FILLED_MAP);
+        MapMeta meta = (MapMeta) item.getItemMeta();
+        MapView mapView = Bukkit.createMap(pl.getWorld());
+        mapView.setTrackingPosition(true);
+        mapView.setCenterX(chunkX * 16 + 8);
+        mapView.setCenterZ(chunkZ * 16 + 8);
+        mapView.setScale(MapView.Scale.CLOSE);
+        mapView.addRenderer(new LandMapRenderer(pl.getName()));
+        meta.setMapView(mapView);
+        item.setItemMeta(meta);
+
+        playerMapViews.put(pl.getName(), mapView);
+        return item;
+    }
+
+    private static void updateMapScale(String playerName) {
+        MapView mapView = playerMapViews.get(playerName);
+        Long landId = editingLand.get(playerName);
+        if (mapView == null || landId == null) return;
+
+        Set<Long> pending = pendingChunks.get(playerName);
+        if (pending == null || pending.isEmpty()) return;
+
+        int centerCX = (int) (landId >> 32);
+        int centerCZ = (int) (landId & 0xFFFFFFFFL);
+
+        int maxDist = 0;
+        for (Long ck : pending) {
+            int cx = (int) (ck >> 32);
+            int cz = (int) (ck & 0xFFFFFFFFL);
+            int dist = Math.max(Math.abs(cx - centerCX), Math.abs(cz - centerCZ));
+            maxDist = Math.max(maxDist, dist);
+        }
+
+        MapView.Scale newScale;
+        if (maxDist > 15) newScale = MapView.Scale.FAR;
+        else if (maxDist > 7) newScale = MapView.Scale.NORMAL;
+        else newScale = MapView.Scale.CLOSE;
+
+        if (mapView.getScale() != newScale) {
+            mapView.setScale(newScale);
+            mapView.getRenderers().removeIf(r -> r instanceof LandMapRenderer);
+            mapView.addRenderer(new LandMapRenderer(playerName));
+        }
+        mapView.setCenterX(centerCX * 16 + 8);
+        mapView.setCenterZ(centerCZ * 16 + 8);
+    }
+
+    private static void cleanupMapView(String playerName) {
+        MapView mapView = playerMapViews.remove(playerName);
+        if (mapView != null) {
+            mapView.getRenderers().removeIf(r -> r instanceof LandMapRenderer);
+        }
+    }
+
+    private static boolean isMainWorld(Player pl) {
+        String levelName = LevelNameUtil.getLevelName();
+        if (levelName == null || !pl.getWorld().getName().equals(levelName)) {
+            pl.sendMessage("§e该世界无法创建和修改领地范围");
+            return false;
+        }
+        return true;
     }
 }

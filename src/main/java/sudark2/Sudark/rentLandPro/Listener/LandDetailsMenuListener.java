@@ -14,7 +14,7 @@ import sudark2.Sudark.rentLandPro.InventoryMenu.LandFunctionsMenu;
 import sudark2.Sudark.rentLandPro.InventoryMenu.LandMembersMenu;
 import sudark2.Sudark.rentLandPro.LandLogic.Clock;
 import sudark2.Sudark.rentLandPro.Util.ChunkKeyUtil;
-import sudark2.Sudark.rentLandPro.Util.GlassUtil;
+import sudark2.Sudark.rentLandPro.Util.LevelNameUtil;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandDetailsMenu.LandDetailsMenuTitle;
-import static sudark2.Sudark.rentLandPro.Util.ItemUtil.createMap;
 
 public class LandDetailsMenuListener implements Listener {
 
@@ -99,6 +98,12 @@ public class LandDetailsMenuListener implements Listener {
                 pl.closeInventory();
             }
             case 7 -> {
+                String levelName = LevelNameUtil.getLevelName();
+                if (levelName == null || !pl.getWorld().getName().equals(levelName)) {
+                    pl.sendMessage("§e该世界无法创建和修改领地范围");
+                    return;
+                }
+
                 LandInfoManager.LandInfo info = landInfo;
                 Long landId = info.getLandId();
                 World world = pl.getWorld();
@@ -109,7 +114,6 @@ public class LandDetailsMenuListener implements Listener {
                     pending.add(ck);
                     original.add(ck);
                     LandCreationListener.startParticleEffectStatic(ck, world);
-                    GlassUtil.placeGlass(ck, world);
                 }
 
                 LandCreationListener.editingLand.put(pl.getName(), landId);
@@ -118,10 +122,11 @@ public class LandDetailsMenuListener implements Listener {
 
                 // 启动超时任务
                 LandCreationListener.resetCreationTimeout(pl.getName());
+                ItemStack landMap = LandCreationListener.createLandEditMap(pl, landId);
                 if (pl.getItemInHand().isEmpty())
-                    pl.setItemInHand(createMap(pl.getLocation()));
+                    pl.setItemInHand(landMap);
                 else
-                    pl.getInventory().addItem(createMap(pl.getLocation()));
+                    pl.getInventory().addItem(landMap);
 
                 pl.closeInventory();
                 pl.sendMessage("§7已进入领地范围编辑模式");
