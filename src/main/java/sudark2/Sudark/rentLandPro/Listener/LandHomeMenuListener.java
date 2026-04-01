@@ -15,6 +15,7 @@ import sudark2.Sudark.rentLandPro.Util.LocationUtil;
 
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu.landHomeMenuTitle;
 import static sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu.landInfoTempMap;
+import static sudark2.Sudark.rentLandPro.Util.LevelNameUtil.MainWorld;
 
 public class LandHomeMenuListener implements Listener {
 
@@ -42,9 +43,9 @@ public class LandHomeMenuListener implements Listener {
         if (clickType == ClickType.LEFT) {
             int[] tp = landInfo.getTeleportPoint();
             if (tp != null && tp.length == 2) {
-                int y = LocationUtil.getHighestSolidY(pl.getWorld(), tp[0], tp[1]) + 1;
-                pl.teleport(new Location(pl.getWorld(), tp[0] + 0.5, y, tp[1] + 0.5));
-                pl.sendMessage("§a已传送至领地: " + landInfo.getLandName());
+                int y = LocationUtil.getHighestSolidY(MainWorld, tp[0], tp[1]) + 1;
+                pl.teleport(new Location(MainWorld, tp[0] + 0.5, y, tp[1] + 0.5));
+                pl.sendMessage("已传送至领地: §e" + landInfo.getLandName());
             } else {
                 pl.sendMessage("§e该领地传送点未设置");
             }

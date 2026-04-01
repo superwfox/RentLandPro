@@ -9,6 +9,7 @@ import sudark2.Sudark.rentLandPro.File.FileManager;
 import sudark2.Sudark.rentLandPro.LandLogic.Clock;
 import sudark2.Sudark.rentLandPro.Listener.*;
 import sudark2.Sudark.rentLandPro.OneBotRelated.OneBotClient;
+import sudark2.Sudark.rentLandPro.Util.LevelNameUtil;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -42,6 +43,7 @@ public final class RentLandPro extends JavaPlugin {
         Clock.startDailyTask();
 
         getLogger().info("§bRentLandPro §f已加载");
+        LevelNameUtil.MainWorld = Bukkit.getWorld(LevelNameUtil.getLevelName());
     }
 
     @Override
