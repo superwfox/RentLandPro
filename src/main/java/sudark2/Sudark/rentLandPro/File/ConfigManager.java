@@ -28,4 +28,8 @@ public class ConfigManager {
     public static int calculateRentCost(int chunkCount, int days) {
         return chunkCount * ChunkPricePerDay * days;
     }
+
+    public static int calculateLandPrice(int area) {
+        return (int) Math.pow(area, 0.8891);
+    }
 }

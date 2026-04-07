@@ -151,9 +151,19 @@ public class LandDetailsMenuListener implements Listener {
             }
             case DURATION -> {
                 try {
-                    int newDuration = Integer.parseInt(message);
+                    int newDays = Integer.parseInt(message);
+                    int area = landInfo.getLandPile().length;
+                    int dayPrice = ConfigManager.calculateLandPrice(area);
 
-                    if (newDuration == 0) {
+                    if (newDays == 0) {
+                        // 删除领地：仅按"不足一天的零头小时"按比例退款
+                        int hours = landInfo.getlandDuration();
+                        int leftoverHours = hours % 24;
+                        int refund = (int) Math.round(dayPrice * leftoverHours / 24.0);
+                        if (refund > 0) {
+                            pl.setLevel(pl.getLevel() + refund);
+                            pl.sendMessage("§7已按剩余 §e" + leftoverHours + " §7小时退还 §e" + refund + " §7级经验");
+                        }
                         pl.sendMessage("§7领地将被删除...");
                         Clock.removeLand(landInfo.getLandId());
                         editingLandInfo.remove(pl.getName());
@@ -161,10 +171,10 @@ public class LandDetailsMenuListener implements Listener {
                         return;
                     }
 
-                    int oldDuration = landInfo.getlandDuration();
-                    int chunkCount = landInfo.getLandPile().length;
-                    int diff = newDuration - oldDuration;
-                    int cost = ConfigManager.calculateRentCost(chunkCount, Math.abs(diff));
+                    int oldHours = landInfo.getlandDuration();
+                    int oldDays = oldHours / 24; // 整天部分
+                    int diff = newDays - oldDays;
+                    int cost = dayPrice * Math.abs(diff);
 
                     if (diff > 0) {
                         if (pl.getLevel() < cost) {
@@ -178,8 +188,8 @@ public class LandDetailsMenuListener implements Listener {
                         pl.sendMessage("§7已退还 §e" + cost + " §7级经验");
                     }
 
-                    landInfo.setLandDuration(newDuration);
-                    pl.sendMessage("§7租期已修改为: §e" + newDuration + " §7天");
+                    landInfo.setLandDuration(newDays * 24);
+                    pl.sendMessage("§7租期已修改为: §e" + newDays + " §7天");
 
                 } catch (NumberFormatException e) {
                     pl.sendMessage("§e请输入有效的数字");

@@ -389,22 +389,22 @@ public class LandCreationListener implements Listener {
         if (info == null || pending == null) return;
 
         boolean isReshape = (original != null);
-        int duration;
-        int billableChunks;
+        int duration; // 用于消息显示，单位：天
+        int cost;
 
         if (isReshape) {
-            duration = info.getlandDuration();
-            billableChunks = 0;
-            for (Long ck : pending) {
-                if (!original.contains(ck)) billableChunks++;
-            }
+            int hours = info.getlandDuration();
+            duration = (int) Math.ceil(hours / 24.0);
+            int oldDayPrice = ConfigManager.calculateLandPrice(original.size());
+            int newDayPrice = ConfigManager.calculateLandPrice(pending.size());
+            // 按剩余小时数比例补差价
+            cost = (int) Math.round((newDayPrice - oldDayPrice) * hours / 24.0);
         } else {
             duration = days;
-            billableChunks = pending.size();
-            info.setLandDuration(days);
+            cost = ConfigManager.calculateLandPrice(pending.size()) * days;
+            info.setLandDuration(days * 24);
         }
 
-        int cost = ConfigManager.calculateRentCost(billableChunks, duration);
         if (cost > 0 && pl.getLevel() < cost) {
             pl.sendMessage("§e经验不足！需要 §b" + cost + " §e级经验");
             editingLand.put(playerName, landId);
@@ -414,6 +414,7 @@ public class LandCreationListener implements Listener {
             return;
         }
         if (cost > 0) pl.setLevel(pl.getLevel() - cost);
+        else if (cost < 0) pl.setLevel(pl.getLevel() + Math.abs(cost)); // 缩小领地退还差价
 
         Long[] newPile = pending.toArray(new Long[0]);
         info.setLandPile(newPile);
@@ -434,7 +435,11 @@ public class LandCreationListener implements Listener {
 
         if (isReshape) {
             pl.sendMessage("§b领地 §e" + info.getLandName() + " §b范围已更新！");
-            pl.sendMessage("§7面积: §e" + pending.size() + " §7区块 §7| §7新增: §e" + billableChunks + " §7| §7花费: §e" + cost + " §7级经验");
+            if (cost >= 0) {
+                pl.sendMessage("§7面积: §e" + pending.size() + " §7区块 §7| §7花费: §e" + cost + " §7级经验");
+            } else {
+                pl.sendMessage("§7面积: §e" + pending.size() + " §7区块 §7| §7退还: §e" + Math.abs(cost) + " §7级经验");
+            }
         } else {
             String ownerQQ = info.getLandOwnerQQ();
             OneBotApi.sendLandCreatedNotice(playerName, ownerQQ, pending.size(), duration);

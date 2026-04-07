@@ -44,7 +44,7 @@ public class GroupCommandHandler {
             String role = m.operators().contains(userQQ) ? "地主" : "成员";
             sb.append(info.getLandName())
               .append(" | ").append(info.getLandPile().length).append("区块")
-              .append(" | 剩余").append(info.getlandDuration()).append("天")
+              .append(" | 剩余").append(info.getDurationDaysDisplay()).append("天")
               .append(" (").append(role).append(")\n");
             count++;
         }
@@ -70,7 +70,7 @@ public class GroupCommandHandler {
             sb.append(info.getLandName())
               .append(" | ").append(ownerName != null ? ownerName : "?")
               .append(" | ").append(info.getLandPile().length).append("区块")
-              .append(" | 剩余").append(info.getlandDuration()).append("天\n");
+              .append(" | 剩余").append(info.getDurationDaysDisplay()).append("天\n");
             i++;
         }
         OneBotApi.sendG(sb.toString());
@@ -85,7 +85,7 @@ public class GroupCommandHandler {
                         "名称: " + info.getLandName() + "\n" +
                         "地主: " + (ownerName != null ? ownerName : "?") + "\n" +
                         "面积: " + info.getLandPile().length + " 区块\n" +
-                        "租期: 剩余 " + info.getlandDuration() + " 天";
+                        "租期: 剩余 " + info.getDurationDaysDisplay() + " 天";
                 OneBotApi.sendG(msg);
                 return;
             }

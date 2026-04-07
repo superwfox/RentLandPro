@@ -22,7 +22,7 @@ public class BinaryEditor {
     //  │   [long] landId           领地ID            │
     //  │   [UTF]  landName         领地名称          │
     //  │   [UTF]  ownerQQ          领主QQ           │
-    //  │   [int]  duration         租期(天)          │
+    //  │   [int]  duration         租期(小时)        │
     //  │   [UTF]  materialName     标志方块名称       │
     //  │   [int]  chunkCount       区块数量          │
     //  │   [long × chunkCount]     区块 key 数组     │

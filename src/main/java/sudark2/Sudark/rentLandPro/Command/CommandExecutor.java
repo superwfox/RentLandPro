@@ -2,6 +2,7 @@ package sudark2.Sudark.rentLandPro.Command;
 
 import org.bukkit.Chunk;
 import org.bukkit.entity.Player;
+import sudark2.Sudark.rentLandPro.File.ConfigManager;
 import sudark2.Sudark.rentLandPro.File.LandInfoManager;
 import sudark2.Sudark.rentLandPro.InventoryMenu.LandHomeMenu;
 import sudark2.Sudark.rentLandPro.LandLogic.Clock;
@@ -74,6 +75,12 @@ public class CommandExecutor implements org.bukkit.command.CommandExecutor {
         String landName = targetLand.getLandName();
         String ownerQQ = targetLand.getLandOwnerQQ();
         Long landId = targetLand.getLandId();
+        int dayPrice = ConfigManager.calculateLandPrice(targetLand.getLandPile().length);
+
+        // 管理员收回不退款，但打印天价格
+        String valueLine = "领地价值 ： " + dayPrice;
+        pl.sendMessage("§7" + valueLine);
+        OneBotApi.sendG("[" + landName + "] " + valueLine);
 
         // 删除领地
         Clock.removeLand(landId);

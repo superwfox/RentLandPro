@@ -22,6 +22,7 @@ public class LandInfoManager {
         private final Long landId;
         private String landName;
         private String landOwnerQQ;
+        // 租期(小时)：后端按小时倒计时，前端展示按天 (hours/24)
         private int landDuration;
         private Material landSignature;
         private Long[] landPile;
@@ -57,6 +58,11 @@ public class LandInfoManager {
         public void setLandDuration(int landDuration) {
             this.landDuration = landDuration;
             BinaryEditor.writeLandInfo();
+        }
+
+        /** 用于前端显示的"X.XX 天" */
+        public String getDurationDaysDisplay() {
+            return String.format("%.2f", landDuration / 24.0);
         }
 
         public Long[] getLandPile() {
