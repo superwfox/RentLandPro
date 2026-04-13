@@ -11,6 +11,7 @@ public class LandFunctionsManager {
     public static final int FLAG_INTERACT = 1 << 2;
     public static final int FLAG_EXPLODE = 1 << 3;
     public static final int FLAG_FLUID = 1 << 4;
+    public static final int FLAG_VISITOR_ALERT_OFF = 1 << 5;
 
     public static final ConcurrentHashMap<Long, Integer> landFunctionFlags = new ConcurrentHashMap<>();
 
@@ -61,5 +62,16 @@ public class LandFunctionsManager {
         int raw = landFunctionFlags.getOrDefault(landId, 0);
         raw = flag ? (raw | FLAG_FLUID) : (raw & ~FLAG_FLUID);
         landFunctionFlags.put(landId, raw);
+    }
+
+    public static void setFlagVisitorAlertOff(long landId, boolean off) {
+        int raw = landFunctionFlags.getOrDefault(landId, 0);
+        raw = off ? (raw | FLAG_VISITOR_ALERT_OFF) : (raw & ~FLAG_VISITOR_ALERT_OFF);
+        landFunctionFlags.put(landId, raw);
+    }
+
+    public static boolean isVisitorAlertEnabled(long landId) {
+        int flags = landFunctionFlags.getOrDefault(landId, 0);
+        return (flags & FLAG_VISITOR_ALERT_OFF) == 0;
     }
 }

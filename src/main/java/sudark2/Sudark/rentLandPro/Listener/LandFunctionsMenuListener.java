@@ -75,7 +75,7 @@ public class LandFunctionsMenuListener implements Listener {
 
         Inventory inv = event.getInventory();
 
-        int[] funcCols = {2, 3, 4, 5, 6};
+        int[] funcCols = {2, 3, 4, 5, 6, 7};
         for (int i = 0; i < FUNC_COUNT; i++) {
             int col = funcCols[i];
             boolean found = false;

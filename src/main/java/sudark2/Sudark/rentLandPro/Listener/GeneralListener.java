@@ -157,6 +157,8 @@ public class GeneralListener implements Listener {
             }
         }
 
+        if (!LandFunctionsManager.isVisitorAlertEnabled(landInfo.getLandId())) return;
+
         String cooldownKey = playerQQ + ":" + landInfo.getLandId();
         Long lastAlert = visitorAlertCooldown.get(cooldownKey);
         long now = System.currentTimeMillis();
