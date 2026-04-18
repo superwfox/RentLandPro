@@ -73,11 +73,11 @@
 ### 配置文件
 `plugins/RentLandPro/config.yml`：
 ```yaml
-QQGroupId: "1076566686"   # 用于通知的 QQ 群号，必须是字符串
+QQGroupId: "009008007"   # 用于通知的 QQ 群号，必须是字符串
 ChunkPricePerDay: 1       # 当前未参与计费，保留字段
 OpQQ:                     # 可使用 QQ 私聊管理命令的管理员 QQ 列表
-  - "2054565750"
-  - "2963502563"
+  - "10001"
+  - "10002"
 ```
 
 ### 计费公式
