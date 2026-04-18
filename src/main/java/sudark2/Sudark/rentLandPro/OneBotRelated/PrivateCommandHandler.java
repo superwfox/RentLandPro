@@ -1,7 +1,9 @@
 package sudark2.Sudark.rentLandPro.OneBotRelated;
 
+import sudark2.Sudark.rentLandPro.Command.CommandExecutor;
 import sudark2.Sudark.rentLandPro.File.ConfigManager;
 import sudark2.Sudark.rentLandPro.File.LandMembersManager;
+import sudark2.Sudark.rentLandPro.LandLogic.LandRequestManager;
 import sudark2.Sudark.rentLandPro.Util.IdentityUtil;
 
 import java.util.Set;
@@ -19,11 +21,37 @@ public class PrivateCommandHandler {
             return;
         }
 
+        if (msg.startsWith("同意 ")) {
+            handleApproval(userQQ, msg.substring(3).trim());
+            return;
+        }
+
         if (!ConfigManager.OpQQ.contains(userQQ)) return;
 
         if (msg.equals("领地总览")) {
             handleOverview(userQQ);
         }
+    }
+
+    private static void handleApproval(String ownerQQ, String indexStr) {
+        int index;
+        try {
+            index = Integer.parseInt(indexStr);
+        } catch (NumberFormatException e) {
+            OneBotApi.sendP(ownerQQ, "[领地] 格式错误，请发送 \"同意 <index>\"");
+            return;
+        }
+
+        LandRequestManager.PendingRequest req = LandRequestManager.takeByIndex(ownerQQ, index);
+        if (req == null) {
+            OneBotApi.sendP(ownerQQ, "[领地] 该申请不存在或已过期");
+            return;
+        }
+
+        org.bukkit.Bukkit.getScheduler().runTask(sudark2.Sudark.rentLandPro.RentLandPro.get(), () -> {
+            CommandExecutor.approveRequest(req);
+            OneBotApi.sendP(ownerQQ, "[领地] 已同意 " + req.requesterName + " 加入领地 " + req.landName);
+        });
     }
 
     private static void handleOverview(String userQQ) {

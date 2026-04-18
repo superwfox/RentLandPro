@@ -13,7 +13,7 @@ public class CommandTabCompleter implements TabCompleter {
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String @NotNull [] args) {
         if (args.length == 1) {
-            List<String> completions = new ArrayList<>(List.of("confirm", "cancel"));
+            List<String> completions = new ArrayList<>(List.of("confirm", "cancel", "req", "yes", "no"));
             if (commandSender.isOp()) {
                 completions.add("return");
             }
